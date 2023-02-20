@@ -79,7 +79,9 @@ def _knn(time_series, window_size, k_neighbours, tcs, dot_first):
         if order == 0:
             dot_rolled = dot_first
         else:
-            dot_rolled = np.roll(dot_prev, 1) + time_series[order + window_size - 1] * time_series[window_size - 1:l + window_size] - time_series[order - 1] * np.roll(time_series[:l], 1)
+            dot_rolled = np.roll(dot_prev, 1) + time_series[order + window_size - 1] * time_series[
+                                                                                       window_size - 1:l + window_size] - \
+                         time_series[order - 1] * np.roll(time_series[:l], 1)
             dot_rolled[0] = dot_first[order]
 
         x_mean = means[order]
@@ -123,6 +125,27 @@ class KSubsequenceNeighbours:
             self.temporal_constraints = np.asarray([(0, time_series.shape[0])], dtype=np.int64)
 
         dot_first = _sliding_dot(time_series[:self.window_size], time_series)
-        self.distances, self.offsets = _knn(time_series, self.window_size, self.k_neighbours, self.temporal_constraints, dot_first)
+        self.distances, self.offsets = _knn(time_series, self.window_size, self.k_neighbours, self.temporal_constraints,
+                                            dot_first)
         return self
 
+    def constrain(self, lbound, ubound):
+        if (lbound, ubound) not in self.temporal_constraints:
+            raise ValueError(f"({lbound},{ubound}) is not a valid temporal constraint.")
+
+        for idx, tc in enumerate(self.temporal_constraints):
+            if tuple(tc) == (lbound, ubound):
+                tc_idx = idx
+
+        ts = self.time_series[lbound:ubound]
+        distances = self.distances[:, tc_idx * self.k_neighbours:(tc_idx + 1) * self.k_neighbours]
+        offsets = self.offsets[:, tc_idx * self.k_neighbours:(tc_idx + 1) * self.k_neighbours]
+
+        knn = KSubsequenceNeighbours(
+            window_size=self.window_size,
+            k_neighbours=self.k_neighbours,
+            temporal_constraints=np.asarray([(0, ts.shape[0])], dtype=np.int64)
+        )
+
+        knn.distances, knn.offsets = distances, offsets
+        return knn
