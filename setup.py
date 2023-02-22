@@ -26,7 +26,7 @@ setup(
     long_description_content_type='text/markdown',
     name=pyproject["project"]["name"],
     package_data={
-        "class": [
+        "claspy": [
             "*.csv",
             "*.csv.gz",
             "*.txt",

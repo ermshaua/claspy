@@ -44,17 +44,19 @@ def _profile(offsets, window_size, score, min_seg_size):
 
 class ClaSP:
 
-    def __init__(self, window_size=10, k_neighbours=3, score="roc_auc", min_seg_size=5):
+    def __init__(self, window_size=10, k_neighbours=3, score="roc_auc", excl_radius=5):
         self.window_size = window_size
         self.k_neighbours = k_neighbours
         self.score = map_scores(score)
-        self.min_seg_size = min_seg_size
+        self.excl_radius = excl_radius
 
     def fit(self, time_series, knn=None):
-        self.min_seg_size *= self.window_size
+        self.min_seg_size = self.window_size * self.excl_radius
 
         if time_series.shape[0] < 2 * self.min_seg_size:
             raise ValueError("Time series must at least have 2*min_seg_size data points.")
+
+        self.time_series = time_series
 
         if knn is None:
             self.knn = KSubsequenceNeighbours(
@@ -67,16 +69,24 @@ class ClaSP:
         self.profile = _profile(self.knn.offsets, self.window_size, self.score, self.min_seg_size)
         return self
 
+    def split(self, sparse=True):
+        cp = np.argmax(self.profile)
+
+        if sparse is True:
+            return cp
+
+        return self.time_series[:cp], self.time_series[cp:]
+
 
 class ClaSPEnsemble:
 
-    def __init__(self, n_estimators=10, window_size=10, k_neighbours=3, score="roc_auc", min_seg_size=5,
+    def __init__(self, n_estimators=10, window_size=10, k_neighbours=3, score="roc_auc", excl_radius=5,
                  random_state=2357):
         self.n_estimators = n_estimators
         self.window_size = window_size
         self.k_neighbours = k_neighbours
         self.score = score
-        self.min_seg_size = min_seg_size
+        self.excl_radius = excl_radius
         self.random_state = random_state
 
     def _calculate_temporal_constraints(self, time_series):
@@ -96,8 +106,10 @@ class ClaSPEnsemble:
         return np.asarray(tcs, dtype=np.int64)
 
     def fit(self, time_series):
-        self.min_seg_size *= self.window_size
+        self.min_seg_size = self.window_size * self.excl_radius
         tcs = self._calculate_temporal_constraints(time_series)
+
+        self.time_series = time_series
 
         knn = KSubsequenceNeighbours(
             window_size=self.window_size,
@@ -112,7 +124,7 @@ class ClaSPEnsemble:
                 window_size=self.window_size,
                 k_neighbours=self.k_neighbours,
                 score=self.score,
-                min_seg_size=int(self.min_seg_size / self.window_size)
+                excl_radius=self.excl_radius
             ).fit(time_series[lbound:ubound], knn=knn.constrain(lbound, ubound))
 
             clasp.profile = (2 * clasp.profile + (ubound - lbound) / time_series.shape[0]) / 3
@@ -125,3 +137,12 @@ class ClaSPEnsemble:
         self.profile = best_clasp.profile
 
         return self
+
+    def split(self, sparse=True):
+        cp = np.argmax(self.profile)
+
+        if sparse is True:
+            return cp
+
+        return self.time_series[:cp], self.time_series[cp:]
+

@@ -1,5 +1,5 @@
 [project]
-name = "classification-score-stream"
+name = "claspy"
 
 version = "0.1.0"
 
