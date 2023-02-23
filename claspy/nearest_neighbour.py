@@ -101,7 +101,7 @@ def _knn(time_series, window_size, k_neighbours, tcs, dot_first):
         for kdx, (lbound, ubound) in enumerate(tcs):
             if order < lbound or order >= ubound: continue
 
-            tc_nn = lbound + _argkmin(dist[lbound:ubound], k_neighbours)
+            tc_nn = lbound + _argkmin(dist[lbound:ubound-window_size+1], k_neighbours)
 
             knns[order, kdx * k_neighbours:(kdx + 1) * k_neighbours] = tc_nn
             dists[order, kdx * k_neighbours:(kdx + 1) * k_neighbours] = dist[tc_nn]
@@ -138,8 +138,8 @@ class KSubsequenceNeighbours:
                 tc_idx = idx
 
         ts = self.time_series[lbound:ubound]
-        distances = self.distances[:, tc_idx * self.k_neighbours:(tc_idx + 1) * self.k_neighbours]
-        offsets = self.offsets[:, tc_idx * self.k_neighbours:(tc_idx + 1) * self.k_neighbours]
+        distances = self.distances[lbound:ubound-self.window_size+1, tc_idx * self.k_neighbours:(tc_idx + 1) * self.k_neighbours]
+        offsets = self.offsets[lbound:ubound-self.window_size+1, tc_idx * self.k_neighbours:(tc_idx + 1) * self.k_neighbours] - lbound
 
         knn = KSubsequenceNeighbours(
             window_size=self.window_size,
@@ -147,5 +147,6 @@ class KSubsequenceNeighbours:
             temporal_constraints=np.asarray([(0, ts.shape[0])], dtype=np.int64)
         )
 
+        knn.time_series = ts
         knn.distances, knn.offsets = distances, offsets
         return knn

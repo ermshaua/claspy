@@ -47,6 +47,7 @@ class ClaSP:
     def __init__(self, window_size=10, k_neighbours=3, score="roc_auc", excl_radius=5):
         self.window_size = window_size
         self.k_neighbours = k_neighbours
+        self.score_name = score
         self.score = map_scores(score)
         self.excl_radius = excl_radius
 
@@ -78,26 +79,23 @@ class ClaSP:
         return self.time_series[:cp], self.time_series[cp:]
 
 
-class ClaSPEnsemble:
+class ClaSPEnsemble(ClaSP):
 
     def __init__(self, n_estimators=10, window_size=10, k_neighbours=3, score="roc_auc", excl_radius=5,
                  random_state=2357):
+        super().__init__(window_size, k_neighbours, score, excl_radius)
         self.n_estimators = n_estimators
-        self.window_size = window_size
-        self.k_neighbours = k_neighbours
-        self.score = score
-        self.excl_radius = excl_radius
         self.random_state = random_state
 
-    def _calculate_temporal_constraints(self, time_series):
-        tcs = [(0, time_series.shape[0])]
+    def _calculate_temporal_constraints(self):
+        tcs = [(0, self.time_series.shape[0])]
         np.random.seed(self.random_state)
 
-        while len(tcs) < self.n_estimators and time_series.shape[0] > 3 * self.min_seg_size:
-            lbound, area = np.random.choice(time_series.shape[0], 2, replace=True)
+        while len(tcs) < self.n_estimators and self.time_series.shape[0] > 3 * self.min_seg_size:
+            lbound, area = np.random.choice(self.time_series.shape[0], 2, replace=True)
 
-            if time_series.shape[0] - lbound < area:
-                area = time_series.shape[0] - lbound
+            if self.time_series.shape[0] - lbound < area:
+                area = self.time_series.shape[0] - lbound
 
             ubound = lbound + area
             if ubound - lbound < 2 * self.min_seg_size: continue
@@ -105,44 +103,43 @@ class ClaSPEnsemble:
 
         return np.asarray(tcs, dtype=np.int64)
 
-    def fit(self, time_series):
+    def fit(self, time_series, knn=None):
         self.min_seg_size = self.window_size * self.excl_radius
-        tcs = self._calculate_temporal_constraints(time_series)
+
+        if time_series.shape[0] < 2 * self.min_seg_size:
+            raise ValueError("Time series must at least have 2*min_seg_size data points.")
 
         self.time_series = time_series
+        tcs = self._calculate_temporal_constraints()
 
-        knn = KSubsequenceNeighbours(
-            window_size=self.window_size,
-            k_neighbours=self.k_neighbours,
-            temporal_constraints=tcs,
-        ).fit(time_series)
+        if knn is None:
+            knn = KSubsequenceNeighbours(
+                window_size=self.window_size,
+                k_neighbours=self.k_neighbours,
+                temporal_constraints=tcs,
+            ).fit(time_series)
 
-        best_score, best_clasp = -np.inf, None
+        best_score, best_tc, best_clasp = -np.inf, None, None
 
-        for (lbound, ubound) in tcs:
+        for idx, (lbound, ubound) in enumerate(tcs):
             clasp = ClaSP(
                 window_size=self.window_size,
                 k_neighbours=self.k_neighbours,
-                score=self.score,
+                score=self.score_name,
                 excl_radius=self.excl_radius
             ).fit(time_series[lbound:ubound], knn=knn.constrain(lbound, ubound))
 
             clasp.profile = (2 * clasp.profile + (ubound - lbound) / time_series.shape[0]) / 3
 
-            if clasp.profile.max() > best_score:
+            if clasp.profile.max() > best_score or best_clasp is None and idx == tcs.shape[0]-1:
                 best_score = clasp.profile.max()
+                best_tc = (lbound, ubound)
                 best_clasp = clasp
 
         self.knn = best_clasp.knn
-        self.profile = best_clasp.profile
+        self.profile = np.full(shape=time_series.shape[0]-self.window_size+1, fill_value=-np.inf, dtype=np.float64)
+
+        lbound, ubound = best_tc
+        self.profile[lbound:ubound-self.window_size+1] = best_clasp.profile
 
         return self
-
-    def split(self, sparse=True):
-        cp = np.argmax(self.profile)
-
-        if sparse is True:
-            return cp
-
-        return self.time_series[:cp], self.time_series[cp:]
-

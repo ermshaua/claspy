@@ -136,3 +136,6 @@ dmypy.json
 
 #tests
 claspy/tests/data/
+
+# Apple
+.DS_Store

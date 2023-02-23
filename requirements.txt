@@ -3,3 +3,5 @@ setuptools~=65.6.3
 numpy~=1.23.5
 numba~=0.56.4
 pandas~=1.5.2
+importlib_metadata~=4.11.3
+matplotlib~=3.6.2
