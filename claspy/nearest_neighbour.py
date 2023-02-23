@@ -4,6 +4,38 @@ from numba import njit
 
 
 def _sliding_dot(query, time_series):
+    '''
+    Calculate sliding dot product between a query and a time series.
+    The sliding dot product (SDP) is a measure of similarity between two sequences,
+    which is calculated as the dot product between a query and a window of the time
+    series of the same length as the query, and then shifted by one element in the
+    time series at a time.
+
+    Parameters
+    ----------
+    query : array-like of shape (m,)
+        The query sequence.
+    time_series : array-like of shape (n,)
+        The time series sequence.
+
+    Returns
+    -------
+    dot_product : ndarray of shape (n - m + 1,)
+        The dot product between the query and all windows of the time series.
+
+    Notes
+    -----
+    This function calculates the SDP between the input query and the input time series.
+    It first pads the query and the time series with zeros to the same length, then calculates
+    the SDP using the Fast Fourier Transform (FFT). Finally, it trims the result to the valid
+    range and returns it.
+
+    Examples
+    --------
+    >>> query = [1, 2, 3]
+    >>> time_series = [1, 2, 3, 4, 5, 6, 7]
+    >>> dot_product = _sliding_dot(query, time_series)
+    '''
     m = len(query)
     n = len(time_series)
 
@@ -26,6 +58,42 @@ def _sliding_dot(query, time_series):
 
 @njit(fastmath=True, cache=True)
 def _sliding_mean_std(time_series, window_size):
+    '''
+    Calculate sliding mean and standard deviation of a time series.
+    The sliding mean and standard deviation are calculated by computing
+    the mean and standard deviation over a sliding window of fixed size,
+    which is moved over the time series with a stride of one element at
+    a time.
+
+    Parameters
+    ----------
+    time_series : array-like of shape (n,)
+        The time series sequence.
+    window_size : int
+        The size of the sliding window.
+
+    Returns
+    -------
+    movmean : ndarray of shape (n - window_size + 1,)
+        The sliding mean of the time series.
+    movstd : ndarray of shape (n - window_size + 1,)
+        The sliding standard deviation of the time series.
+
+    Notes
+    -----
+    This function calculates the sliding mean and standard deviation of
+    the input time series using a sliding window approach. It first computes
+    the cumulative sum and cumulative sum of squares of the time series, then
+    computes the window sum and window sum of squares for each sliding window.
+    Finally, it computes the mean and standard deviation over each window and
+    returns the results.
+
+    Examples
+    --------
+    >>> time_series = [1, 2, 3, 4, 5, 6, 7]
+    >>> window_size = 3
+    >>> movmean, movstd = _sliding_mean_std(time_series, window_size)
+    '''
     s = np.concatenate((np.zeros(1, dtype=np.float64), np.cumsum(time_series)))
     sSq = np.concatenate((np.zeros(1, dtype=np.float64), np.cumsum(time_series ** 2)))
 
@@ -41,6 +109,42 @@ def _sliding_mean_std(time_series, window_size):
 
 @njit(fastmath=True, cache=True)
 def _argkmin(dist, k):
+    '''
+    Compute the indices of the k smallest elements in a numpy array.
+    This function computes the indices of the k smallest elements in a
+    numpy array, and returns them in an array.
+
+    Parameters
+    ----------
+    dist : ndarray of shape (n,)
+        The input numpy array of distances.
+    k : int
+        The number of smallest elements to return.
+
+    Returns
+    -------
+    args : ndarray of shape (k,)
+        The indices of the k smallest elements in the input numpy array.
+
+    Notes
+    -----
+    This function computes the indices of the k smallest elements in the
+    input numpy array using a nested loop approach. It first initializes
+    two arrays to store the indices and values of the k smallest elements,
+    and then iteratively loops over the input array to find the k smallest
+    elements. Each time a new smallest element is found, its index and value
+    are stored in the arrays, and the corresponding element in the input array
+    is replaced with infinity to prevent it from being selected again. The
+    function returns the array of indices of the k smallest elements.
+
+    Examples
+    --------
+    >>> dist = [3, 2, 1, 4, 5]
+    >>> k = 3
+    >>> args = _argkmin(dist, k)
+    >>> args
+    array([2, 1, 0])
+    '''
     args = np.zeros(shape=k, dtype=np.int64)
     vals = np.zeros(shape=k, dtype=np.float64)
 
@@ -66,6 +170,31 @@ def _argkmin(dist, k):
 
 @njit(fastmath=True, cache=True)
 def _knn(time_series, window_size, k_neighbours, tcs, dot_first):
+    '''
+    Perform k-nearest neighbors search between all pairs of subsequences of `time_series`
+    of length `window_size`, based on their Euclidean distance after normalization by mean and
+    standard deviation. Uses a dot product method for fast calculation.
+
+    Parameters
+    ----------
+    time_series : ndarray of shape (n,)
+        The time series to search over.
+    window_size : int
+        The length of the sliding window for comparison.
+    k_neighbours : int
+        The number of nearest neighbors to return for each query.
+    tcs : ndarray of shape (m, 2), where each row is (start, end)
+        Temporal constraints to consider.
+    dot_first : ndarray of shape (n - window_size + 1,)
+        Dot product of the first sliding window with itself.
+
+    Returns
+    -------
+    dists : ndarray of shape (l, m * k_neighbours)
+        Array of distances between subsequences, sorted in increasing order.
+    knns : ndarray of shape (l, m * k_neighbours)
+        Array of indices of k nearest neighbors for each subsequence.
+    '''
     l = len(time_series) - window_size + 1
     exclusion_radius = np.int64(window_size / 2)
 
@@ -112,6 +241,28 @@ def _knn(time_series, window_size, k_neighbours, tcs, dot_first):
 
 
 class KSubsequenceNeighbours:
+    '''
+    Class implementing the K-Subsequence Neighbours (KSN) algorithm.
+
+    Parameters
+    ----------
+    window_size : int, optional (default=10)
+        Length of subsequence window.
+    k_neighbours : int, optional (default=3)
+        Number of nearest neighbors to return for each time series subsequence.
+    temporal_constraints : array-like of tuples, optional (default=None)
+        List of temporal constraints that define the region in which to find nearest neighbors
+        for a time series.Each tuple in the list should contain two integers (l, u) where l is
+        the lower bound (inclusive) and u is the upper bound (exclusive) of the time series region.
+        If None, the nearest neighbors will be found for the entire time series.
+
+    Methods
+    -------
+    fit(time_series)
+        Fit the KSN model to the input time series data.
+    constrain(self, lbound, ubound)
+        Return a constrained KSN model for the given temporal constraint.
+    '''
 
     def __init__(self, window_size=10, k_neighbours=3, temporal_constraints=None):
         self.window_size = window_size
