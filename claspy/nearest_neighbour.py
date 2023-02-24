@@ -242,7 +242,7 @@ def _knn(time_series, window_size, k_neighbours, tcs, dot_first):
 
 class KSubsequenceNeighbours:
     '''
-    Class implementing the K-Subsequence Neighbours (KSN) algorithm.
+    Class implementing the K-Subsequence Neighbours algorithm.
 
     Parameters
     ----------
@@ -250,11 +250,6 @@ class KSubsequenceNeighbours:
         Length of subsequence window.
     k_neighbours : int, optional (default=3)
         Number of nearest neighbors to return for each time series subsequence.
-    temporal_constraints : array-like of tuples, optional (default=None)
-        List of temporal constraints that define the region in which to find nearest neighbors
-        for a time series.Each tuple in the list should contain two integers (l, u) where l is
-        the lower bound (inclusive) and u is the upper bound (exclusive) of the time series region.
-        If None, the nearest neighbors will be found for the entire time series.
 
     Methods
     -------
@@ -263,17 +258,36 @@ class KSubsequenceNeighbours:
     constrain(self, lbound, ubound)
         Return a constrained KSN model for the given temporal constraint.
     '''
-
-    def __init__(self, window_size=10, k_neighbours=3, temporal_constraints=None):
+    def __init__(self, window_size=10, k_neighbours=3):
         self.window_size = window_size
         self.k_neighbours = k_neighbours
-        self.temporal_constraints = temporal_constraints
 
-    def fit(self, time_series):
+    def fit(self, time_series, temporal_constraints=None):
+        '''
+        Fits the k-subsequence neighbors model to the provided time series.
+
+        Parameters
+        ----------
+        time_series : array-like
+            The time series to fit the model to.
+
+        temporal_constraints : array-like of shape (n, 2), optional (default=None)
+            Temporal constraints for the subsequences. Each row defines a temporal constraint as
+            a pair of integers (l, u), such that the model is only allowed to match subsequences
+            starting at positions that are greater than or equal to l and smaller than u. If None,
+            a single constraint spanning the entire length of the time series is used.
+
+        Returns
+        -------
+        self : KSubsequenceNeighbours
+            A reference to the fitted model.
+        '''
         self.time_series = time_series
 
-        if self.temporal_constraints is None:
+        if temporal_constraints is None:
             self.temporal_constraints = np.asarray([(0, time_series.shape[0])], dtype=np.int64)
+        else:
+            self.temporal_constraints = temporal_constraints
 
         dot_first = _sliding_dot(time_series[:self.window_size], time_series)
         self.distances, self.offsets = _knn(time_series, self.window_size, self.k_neighbours, self.temporal_constraints,
@@ -281,6 +295,27 @@ class KSubsequenceNeighbours:
         return self
 
     def constrain(self, lbound, ubound):
+        '''
+        Constrain the k-nearest neighbours search to a specific range.
+
+        Parameters
+        ----------
+        lbound : int
+            The lower bound of the subsequence to constrain the k-nearest neighbours search to.
+        ubound : int
+            The upper bound of the subsequence to constrain the k-nearest neighbours search to.
+
+        Returns
+        -------
+        KSubsequenceNeighbours
+            A new instance of KSubsequenceNeighbours class with the k-nearest neighbours search constrained to the
+            range defined by the lbound and ubound indices.
+
+        Raises
+        ------
+        ValueError
+            If the (lbound, ubound) tuple is not a valid temporal constraint.
+        '''
         if (lbound, ubound) not in self.temporal_constraints:
             raise ValueError(f"({lbound},{ubound}) is not a valid temporal constraint.")
 
@@ -295,9 +330,9 @@ class KSubsequenceNeighbours:
         knn = KSubsequenceNeighbours(
             window_size=self.window_size,
             k_neighbours=self.k_neighbours,
-            temporal_constraints=np.asarray([(0, ts.shape[0])], dtype=np.int64)
         )
 
         knn.time_series = ts
+        knn.temporal_constraints = np.asarray([(0, ts.shape[0])], dtype=np.int64)
         knn.distances, knn.offsets = distances, offsets
         return knn
