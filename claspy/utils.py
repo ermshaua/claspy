@@ -2,7 +2,7 @@ import numpy as np
 
 
 def check_input_time_series(time_series):
-    '''
+    """
     Check that the input time series is a 1-dimensional numpy array of numbers.
 
     Parameters
@@ -21,7 +21,7 @@ def check_input_time_series(time_series):
         If the input time series is not an array-like object or not a 1-dimensional array.
     ValueError
         If the input time series is not composed of numbers.
-    '''
+    """
     if not isinstance(time_series, np.ndarray):
         raise TypeError("Input time series must be a numpy array.")
 

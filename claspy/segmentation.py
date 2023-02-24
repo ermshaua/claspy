@@ -1,25 +1,15 @@
 from queue import PriorityQueue
 
-import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 from claspy.clasp import ClaSPEnsemble
 from claspy.utils import check_input_time_series
 
-matplotlib.rcParams['pdf.fonttype'] = 42
-matplotlib.rcParams['ps.fonttype'] = 42
-
-import seaborn as sns
-
-sns.set_theme()
-sns.set_color_codes()
-
-import matplotlib.pyplot as plt
-
 
 class BinaryClaSPSegmentation:
-    '''
+    """
     Segment time series data using the binary segmentation algorithm with ClaSP.
 
     Parameters
@@ -50,7 +40,8 @@ class BinaryClaSPSegmentation:
     -------
     fit(time_series)
         Fit the BinaryClaSPSegmentation model to the input time series.
-    '''
+    """
+
     def __init__(self, n_segments=1, n_estimators=10, window_size=10, k_neighbours=3, score="roc_auc", excl_radius=5,
                  random_state=2357):
         self.n_segments = n_segments
@@ -63,7 +54,7 @@ class BinaryClaSPSegmentation:
         self.random_state = random_state
 
     def _cp_is_valid(self, candidate, change_points):
-        '''
+        """
         Determine whether a candidate change point is valid given a list of existing change points.
 
         Parameters
@@ -77,7 +68,7 @@ class BinaryClaSPSegmentation:
         -------
         bool
             True if the candidate change point is valid, False otherwise.
-        '''
+        """
         for change_point in [0] + change_points + [self.n_timepoints]:
             left_begin = max(0, change_point - self.min_seg_size)
             right_end = min(self.n_timepoints, change_point + self.min_seg_size)
@@ -86,7 +77,7 @@ class BinaryClaSPSegmentation:
         return True
 
     def _local_segmentation(self, lbound, ubound, change_points):
-        '''
+        """
         Perform local segmentation of the time series within the range [lbound, ubound) using ClaSP algorithm.
 
         Parameters:
@@ -101,7 +92,7 @@ class BinaryClaSPSegmentation:
         Returns:
         --------
         None
-        '''
+        """
         if ubound - lbound < 2 * self.min_seg_size: return
 
         clasp = ClaSPEnsemble(
@@ -196,7 +187,7 @@ class BinaryClaSPSegmentation:
         return self
 
     def predict(self, sparse=True):
-        '''
+        """
         Predicts the location of the change points in the time series.
 
         Parameters
@@ -208,15 +199,15 @@ class BinaryClaSPSegmentation:
         -------
         If `sparse` is True, returns an array containing the indices of the change points.
         Otherwise, returns a list of numpy arrays, where each array corresponds to a segment in the imput time series.
-        '''
+        """
         if sparse is True:
             return self.change_points
 
         seg_idx = np.concatenate(([0], self.change_points, [self.time_series.shape[0]]))
-        return [self.time_series[seg_idx[idx]:seg_idx[idx+1]] for idx in range(len(seg_idx)-1)]
+        return [self.time_series[seg_idx[idx]:seg_idx[idx + 1]] for idx in range(len(seg_idx) - 1)]
 
     def fit_predict(self, time_series, sparse=True):
-        '''
+        """
         Fit the ClaSP model to the provided time series and predict change points.
 
         Parameters:
@@ -230,11 +221,11 @@ class BinaryClaSPSegmentation:
         --------
         If `sparse` is True, returns an array containing the indices of the change points.
         Otherwise, returns a list of numpy arrays, where each array corresponds to a segment in the imput time series.
-        '''
+        """
         return self.fit(time_series).predict(sparse)
 
     def plot(self, gt_cps=None, heading=None, ts_name=None, fig_size=(20, 10), font_size=26, file_path=None):
-        '''
+        """
         Plot the fitted time series annotated with ClaSP and found change points.
 
         Parameters
@@ -257,15 +248,15 @@ class BinaryClaSPSegmentation:
         -------
         ax1, ax2 : matplotlib.Axes
             The two subplots of the resulting figure (the time series and the ClaSP plot).
-        '''
-        fig, (ax1, ax2) = plt.subplots(2, sharex=True, gridspec_kw={'hspace': .05}, figsize=fig_size)
+        """
+        fig, (ax1, ax2) = plt.subplots(2, sharex=True, gridspec_kw={"hspace": .05}, figsize=fig_size)
 
         if gt_cps is not None:
             segments = [0] + gt_cps.tolist() + [self.time_series.shape[0]]
             for idx in np.arange(0, len(segments) - 1):
                 ax1.plot(np.arange(segments[idx], segments[idx + 1]), self.time_series[segments[idx]:segments[idx + 1]])
 
-            ax2.plot(np.arange(self.profile.shape[0]), self.profile, color='b')
+            ax2.plot(np.arange(self.profile.shape[0]), self.profile, color="b")
         else:
             ax1.plot(np.arange(self.time_series.shape[0]), self.time_series)
             ax2.plot(np.arange(self.profile.shape[0]), self.profile)
@@ -276,7 +267,7 @@ class BinaryClaSPSegmentation:
         if ts_name is not None:
             ax2.set_ylabel(heading, fontsize=font_size)
 
-        ax2.set_xlabel('split point', fontsize=font_size)
+        ax2.set_xlabel("split point", fontsize=font_size)
         ax2.set_ylabel("ClaSP Score", fontsize=font_size)
 
         for ax in (ax1, ax2):
@@ -288,14 +279,14 @@ class BinaryClaSPSegmentation:
 
         if gt_cps is not None:
             for idx, true_cp in enumerate(gt_cps):
-                ax1.axvline(x=true_cp, linewidth=2, color='r', label=f'True Change Point' if idx == 0 else None)
-                ax2.axvline(x=true_cp, linewidth=2, color='r', label='True Change Point' if idx == 0 else None)
+                ax1.axvline(x=true_cp, linewidth=2, color="r", label=f"True Change Point" if idx == 0 else None)
+                ax2.axvline(x=true_cp, linewidth=2, color="r", label="True Change Point" if idx == 0 else None)
 
         for idx, found_cp in enumerate(self.change_points):
-            ax1.axvline(x=found_cp, linewidth=2, color='g', label='Predicted Change Point' if idx == 0 else None)
-            ax2.axvline(x=found_cp, linewidth=2, color='g', label='Predicted Change Point' if idx == 0 else None)
+            ax1.axvline(x=found_cp, linewidth=2, color="g", label="Predicted Change Point" if idx == 0 else None)
+            ax2.axvline(x=found_cp, linewidth=2, color="g", label="Predicted Change Point" if idx == 0 else None)
 
-        ax1.legend(prop={'size': font_size})
+        ax1.legend(prop={"size": font_size})
 
         if file_path is not None:
             plt.savefig(file_path, bbox_inches="tight")

@@ -4,9 +4,9 @@ from numba import njit
 
 @njit(fastmath=True, cache=True)
 def f1_score(y_true, y_pred):
-    '''
+    """
     Compute the F1 score, which is the harmonic mean of precision and recall.
-    The F1 score is a measure of a model's accuracy that takes both precision
+    The F1 score is a measure of a model"s accuracy that takes both precision
     and recall into account. It is commonly used in binary classification problems
     where there are two classes, positive and negative.
 
@@ -34,7 +34,7 @@ def f1_score(y_true, y_pred):
     References
     ----------
     .. [1] "F1 score", Wikipedia, https://en.wikipedia.org/wiki/F1_score
-    '''
+    """
     f1_scores = np.zeros(shape=2, dtype=np.float64)
 
     for label in (0, 1):
@@ -59,11 +59,11 @@ def f1_score(y_true, y_pred):
 
 @njit(fastmath=True, cache=True)
 def roc_auc_score(y_score, y_true):
-    '''
+    """
     Compute the Receiver Operating Characteristic (ROC) area under the curve (AUC).
     The ROC curve is a graphical plot that illustrates the performance of a binary
     classifier system as its discrimination threshold is varied. The area under
-    the ROC curve (AUC) is a measure of the classifier's ability to distinguish between
+    the ROC curve (AUC) is a measure of the classifier"s ability to distinguish between
     positive and negative classes. The AUC ranges from 0.0 to 1.0, with 1.0
     representing perfect classification.
 
@@ -91,7 +91,7 @@ def roc_auc_score(y_score, y_true):
     References
     ----------
     .. [1] "Receiver operating characteristic", Wikipedia, https://en.wikipedia.org/wiki/Receiver_operating_characteristic
-    '''
+    """
     # make y_true a boolean vector
     y_true = (y_true == 1)
 
@@ -146,7 +146,7 @@ _SCORE_MAPPING = {
 
 
 def map_scores(score_name):
-    '''
+    """
     Map score names to score functions.
 
     Parameters
@@ -177,16 +177,16 @@ def map_scores(score_name):
 
     Examples
     --------
-    >>> score_func = map_scores("f1")
+    >>> score_func = map_scores('f1')
     >>> y_true = [0, 1, 1, 0, 1]
     >>> y_pred = [0, 1, 0, 0, 1]
     >>> score = score_func(y_true, y_pred)
 
-    >>> score_func = map_scores("roc_auc")
+    >>> score_func = map_scores('roc_auc')
     >>> y_true = [0, 1, 1, 0, 1]
     >>> y_score = [0.1, 0.8, 0.4, 0.3, 0.9]
     >>> score = score_func(y_score, y_true)
-    '''
+    """
     if score_name not in _SCORE_MAPPING:
         raise ValueError(
             f"{score_name} is not a valid score. Implementations include: {', '.join(_SCORE_MAPPING.keys())}")

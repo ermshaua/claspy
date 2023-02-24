@@ -4,7 +4,7 @@ from numba import njit
 
 
 def _sliding_dot(query, time_series):
-    '''
+    """
     Calculate sliding dot product between a query and a time series.
     The sliding dot product (SDP) is a measure of similarity between two sequences,
     which is calculated as the dot product between a query and a window of the time
@@ -35,7 +35,7 @@ def _sliding_dot(query, time_series):
     >>> query = [1, 2, 3]
     >>> time_series = [1, 2, 3, 4, 5, 6, 7]
     >>> dot_product = _sliding_dot(query, time_series)
-    '''
+    """
     m = len(query)
     n = len(time_series)
 
@@ -50,7 +50,7 @@ def _sliding_dot(query, time_series):
         q_add = 1
 
     query = query[::-1]
-    query = np.pad(query, (0, n - m + time_series_add - q_add), 'constant')
+    query = np.pad(query, (0, n - m + time_series_add - q_add), "constant")
     trim = m - 1 + time_series_add
     dot_product = fft.irfft(fft.rfft(time_series) * fft.rfft(query))
     return dot_product[trim:]
@@ -58,7 +58,7 @@ def _sliding_dot(query, time_series):
 
 @njit(fastmath=True, cache=True)
 def _sliding_mean_std(time_series, window_size):
-    '''
+    """
     Calculate sliding mean and standard deviation of a time series.
     The sliding mean and standard deviation are calculated by computing
     the mean and standard deviation over a sliding window of fixed size,
@@ -93,7 +93,7 @@ def _sliding_mean_std(time_series, window_size):
     >>> time_series = [1, 2, 3, 4, 5, 6, 7]
     >>> window_size = 3
     >>> movmean, movstd = _sliding_mean_std(time_series, window_size)
-    '''
+    """
     s = np.concatenate((np.zeros(1, dtype=np.float64), np.cumsum(time_series)))
     sSq = np.concatenate((np.zeros(1, dtype=np.float64), np.cumsum(time_series ** 2)))
 
@@ -109,7 +109,7 @@ def _sliding_mean_std(time_series, window_size):
 
 @njit(fastmath=True, cache=True)
 def _argkmin(dist, k):
-    '''
+    """
     Compute the indices of the k smallest elements in a numpy array.
     This function computes the indices of the k smallest elements in a
     numpy array, and returns them in an array.
@@ -144,7 +144,7 @@ def _argkmin(dist, k):
     >>> args = _argkmin(dist, k)
     >>> args
     array([2, 1, 0])
-    '''
+    """
     args = np.zeros(shape=k, dtype=np.int64)
     vals = np.zeros(shape=k, dtype=np.float64)
 
@@ -170,7 +170,7 @@ def _argkmin(dist, k):
 
 @njit(fastmath=True, cache=True)
 def _knn(time_series, window_size, k_neighbours, tcs, dot_first):
-    '''
+    """
     Perform k-nearest neighbors search between all pairs of subsequences of `time_series`
     of length `window_size`, based on their Euclidean distance after normalization by mean and
     standard deviation. Uses a dot product method for fast calculation.
@@ -194,7 +194,7 @@ def _knn(time_series, window_size, k_neighbours, tcs, dot_first):
         Array of distances between subsequences, sorted in increasing order.
     knns : ndarray of shape (l, m * k_neighbours)
         Array of indices of k nearest neighbors for each subsequence.
-    '''
+    """
     l = len(time_series) - window_size + 1
     exclusion_radius = np.int64(window_size / 2)
 
@@ -241,7 +241,7 @@ def _knn(time_series, window_size, k_neighbours, tcs, dot_first):
 
 
 class KSubsequenceNeighbours:
-    '''
+    """
     Class implementing the K-Subsequence Neighbours algorithm.
 
     Parameters
@@ -257,13 +257,13 @@ class KSubsequenceNeighbours:
         Fit the KSN model to the input time series data.
     constrain(self, lbound, ubound)
         Return a constrained KSN model for the given temporal constraint.
-    '''
+    """
     def __init__(self, window_size=10, k_neighbours=3):
         self.window_size = window_size
         self.k_neighbours = k_neighbours
 
     def fit(self, time_series, temporal_constraints=None):
-        '''
+        """
         Fits the k-subsequence neighbors model to the provided time series.
 
         Parameters
@@ -281,7 +281,7 @@ class KSubsequenceNeighbours:
         -------
         self : KSubsequenceNeighbours
             A reference to the fitted model.
-        '''
+        """
         self.time_series = time_series
 
         if temporal_constraints is None:
@@ -295,7 +295,7 @@ class KSubsequenceNeighbours:
         return self
 
     def constrain(self, lbound, ubound):
-        '''
+        """
         Constrain the k-nearest neighbours search to a specific range.
 
         Parameters
@@ -315,7 +315,7 @@ class KSubsequenceNeighbours:
         ------
         ValueError
             If the (lbound, ubound) tuple is not a valid temporal constraint.
-        '''
+        """
         if (lbound, ubound) not in self.temporal_constraints:
             raise ValueError(f"({lbound},{ubound}) is not a valid temporal constraint.")
 

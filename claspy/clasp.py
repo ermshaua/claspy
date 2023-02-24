@@ -8,7 +8,7 @@ from claspy.utils import check_input_time_series
 
 @njit(fastmath=True, cache=True)
 def _cross_val_labels(offsets, split_idx, window_size):
-    '''
+    """
     Generate predicted and true labels for cross-validation based on nearest neighbour distances.
 
     Parameters
@@ -28,7 +28,7 @@ def _cross_val_labels(offsets, split_idx, window_size):
         The true labels for each timepoint in the time series.
     y_pred : ndarray of shape (n_timepoints,)
         The predicted labels for each timepoint in the time series.
-    '''
+    """
     n_timepoints, k_neighbours = offsets.shape
 
     y_true = np.concatenate((
@@ -54,7 +54,7 @@ def _cross_val_labels(offsets, split_idx, window_size):
 
 @njit(fastmath=True, cache=False)
 def _profile(offsets, window_size, score, min_seg_size):
-    '''
+    """
     Computes the classification score profile given nearest neighbour offsets.
 
     Parameters
@@ -75,7 +75,7 @@ def _profile(offsets, window_size, score, min_seg_size):
     -------
     np.ndarray
         An array of shape (n_timepoints,) containing the classification score profile.
-    '''
+    """
     n_timepoints, _ = offsets.shape
     profile = np.full(shape=n_timepoints, fill_value=-np.inf, dtype=np.float64)
 
@@ -87,7 +87,7 @@ def _profile(offsets, window_size, score, min_seg_size):
 
 
 class ClaSP:
-    '''
+    """
     An implementation of the ClaSP algorithm for detecting change points in time series data.
 
     Parameters
@@ -108,8 +108,7 @@ class ClaSP:
         Create a ClaSP for the input time series data.
     split()
         Split ClaSP into two segments.
-    '''
-
+    """
     def __init__(self, window_size=10, k_neighbours=3, score="roc_auc", excl_radius=5):
         self.window_size = window_size
         self.k_neighbours = k_neighbours
@@ -118,7 +117,7 @@ class ClaSP:
         self.excl_radius = excl_radius
 
     def fit(self, time_series, knn=None):
-        '''
+        """
         Fits the ClaSP model to the input time series data.
 
         Parameters
@@ -140,7 +139,7 @@ class ClaSP:
         ------
         ValueError
             If the input time series has less than 2*min_seg_size data points.
-        '''
+        """
         check_input_time_series(time_series)
         self.min_seg_size = self.window_size * self.excl_radius
 
@@ -161,18 +160,18 @@ class ClaSP:
         return self
 
     def transform(self):
-        '''
+        """
         Transform the input time series into a ClaSP profile.
 
         Returns
         -------
         profile : numpy.ndarray
             The ClaSP profile for the input time series.
-        '''
+        """
         return self.profile
 
     def fit_transform(self, time_series, knn=None):
-        '''
+        """
         Fit the ClaSP algorithm to the given time series and return the
         corresponding profile.
 
@@ -190,11 +189,11 @@ class ClaSP:
         np.ndarray, shape (n_timepoints,)
             The ClaSP scores corresponding to each time point of the input time series.
 
-        '''
+        """
         return self.fit(time_series, knn).transform()
 
     def split(self, sparse=True):
-        '''
+        """
         Split the time series into two segments using the change point location.
 
         Parameters
@@ -208,7 +207,7 @@ class ClaSP:
         int or tuple
             If `sparse` is True, returns the index of the change point. If False, returns a tuple
             of the two segments separated by the change point.
-        '''
+        """
         cp = np.argmax(self.profile)
 
         if sparse is True:
@@ -218,7 +217,7 @@ class ClaSP:
 
 
 class ClaSPEnsemble(ClaSP):
-    '''
+    """
     An ensemble of ClaSP.
 
     Parameters
@@ -230,8 +229,8 @@ class ClaSPEnsemble(ClaSP):
     k_neighbours : int, optional
         The number of nearest neighbours to consider in the k-subsequence method. Default is 3.
     score : str or callable, optional
-        The scoring method to use in the profile scoring. Must be a string ('f1' 'roc_auc',).
-        Default is 'roc_auc'.
+        The scoring method to use in the profile scoring. Must be a string ("f1" "roc_auc",).
+        Default is "roc_auc".
     excl_radius : int, optional
         The radius of the exclusion zone in the profile scoring. Default is 5*window_size.
     random_state : int or RandomState, optional
@@ -241,8 +240,7 @@ class ClaSPEnsemble(ClaSP):
     -------
     fit(time_series)
         Create a ClaSP ensemble for the input time series data.
-    '''
-
+    """
     def __init__(self, n_estimators=10, window_size=10, k_neighbours=3, score="roc_auc", excl_radius=5,
                  random_state=2357):
         super().__init__(window_size, k_neighbours, score, excl_radius)
@@ -250,14 +248,14 @@ class ClaSPEnsemble(ClaSP):
         self.random_state = random_state
 
     def _calculate_temporal_constraints(self):
-        '''
+        """
         Calculates a set of random temporal constraints for each ClaSP in the ensemble.
 
         Returns
         -------
         tcs : ndarray of shape (n_estimators, 2)
             Array of start and end indices for each temporal constraint.
-        '''
+        """
         tcs = [(0, self.time_series.shape[0])]
         np.random.seed(self.random_state)
 
@@ -274,7 +272,7 @@ class ClaSPEnsemble(ClaSP):
         return np.asarray(tcs, dtype=np.int64)
 
     def fit(self, time_series, knn=None):
-        '''
+        """
         Fits the ClaSP ensemble on the given time series, using temporal constraints to so that
         each ClaSP instance works on different (but possibly overlapping) parts of the time series.
 
@@ -296,7 +294,7 @@ class ClaSPEnsemble(ClaSP):
         ------
         ValueError
             If the input time series has less than 2 times the minimum segment size.
-        '''
+        """
         check_input_time_series(time_series)
         self.min_seg_size = self.window_size * self.excl_radius
 
