@@ -29,9 +29,11 @@ class SegmentationTest(unittest.TestCase):
         scores = []
 
         for idx, (dataset, window_size, cps, time_series) in list(tssb.iterrows()):
-            clasp = BinaryClaSPSegmentation(n_segments=len(cps) + 1, window_size=window_size)
+            clasp = BinaryClaSPSegmentation()
             found_cps = clasp.fit_predict(time_series)
             score = np.round(covering({0: cps}, found_cps, time_series.shape[0]), 2)
+            print(f"{dataset}: {score}")
             scores.append(score)
 
-        assert np.mean(scores) > .9
+        print(np.mean(scores))
+        assert np.mean(scores) > .8

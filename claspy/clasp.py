@@ -1,55 +1,12 @@
 import numpy as np
 from numba import njit
+from sklearn.exceptions import NotFittedError
 
 from claspy.nearest_neighbour import KSubsequenceNeighbours
+from claspy.nearest_neighbour import cross_val_labels
 from claspy.scoring import map_scores
 from claspy.utils import check_input_time_series
-
-
-@njit(fastmath=True, cache=True)
-def _cross_val_labels(offsets, split_idx, window_size):
-    """
-    Generate predicted and true labels for cross-validation based on nearest neighbour distances.
-
-    Parameters
-    ----------
-    offsets : ndarray of shape (n_timepoints, k_neighbours)
-        The indices of the nearest neighbours for each timepoint in the time series. These indices
-        are relative to the start of the time series and should be positive integers.
-    split_idx : int
-        The index at which to split the time series into two potential segments. This index should be
-        less than n_timepoints and greater than window_size.
-    window_size : int
-        The size of the window used to calculate nearest neighbours.
-
-    Returns
-    -------
-    y_true : ndarray of shape (n_timepoints,)
-        The true labels for each timepoint in the time series.
-    y_pred : ndarray of shape (n_timepoints,)
-        The predicted labels for each timepoint in the time series.
-    """
-    n_timepoints, k_neighbours = offsets.shape
-
-    y_true = np.concatenate((
-        np.zeros(split_idx, dtype=np.int64),
-        np.ones(n_timepoints - split_idx, dtype=np.int64),
-    ))
-
-    knn_labels = np.zeros(shape=(k_neighbours, n_timepoints), dtype=np.int64)
-
-    for i_neighbor in range(k_neighbours):
-        neighbours = offsets[:, i_neighbor]
-        knn_labels[i_neighbor] = y_true[neighbours]
-
-    ones = np.sum(knn_labels, axis=0)
-    zeros = k_neighbours - ones
-    y_pred = np.asarray(ones > zeros, dtype=np.int64)
-
-    exclusion_zone = np.arange(split_idx - window_size, split_idx)
-    y_pred[exclusion_zone] = 1
-
-    return y_true, y_pred
+from claspy.validation import map_validation_tests
 
 
 @njit(fastmath=True, cache=False)
@@ -80,7 +37,7 @@ def _profile(offsets, window_size, score, min_seg_size):
     profile = np.full(shape=n_timepoints, fill_value=-np.inf, dtype=np.float64)
 
     for split_idx in range(min_seg_size, n_timepoints - min_seg_size):
-        y_true, y_pred = _cross_val_labels(offsets, split_idx, window_size)
+        y_true, y_pred = cross_val_labels(offsets, split_idx, window_size)
         profile[split_idx] = score(y_true, y_pred)
 
     return profile
@@ -109,12 +66,30 @@ class ClaSP:
     split()
         Split ClaSP into two segments.
     """
+
     def __init__(self, window_size=10, k_neighbours=3, score="roc_auc", excl_radius=5):
         self.window_size = window_size
         self.k_neighbours = k_neighbours
         self.score_name = score
         self.score = map_scores(score)
         self.excl_radius = excl_radius
+        self.is_fitted = False
+
+    def _check_is_fitted(self):
+        """
+        Checks if the ClaSP object is fitted.
+
+        Raises
+        ------
+        NotFittedError
+            If the ClaSP object is not fitted.
+
+        Returns
+        -------
+        None
+        """
+        if not self.is_fitted:
+            raise NotFittedError("ClaSP object is not fitted yet. Please fit the object before using this method.")
 
     def fit(self, time_series, knn=None):
         """
@@ -157,6 +132,8 @@ class ClaSP:
             self.knn = knn
 
         self.profile = _profile(self.knn.offsets, self.window_size, self.score, self.min_seg_size)
+
+        self.is_fitted = True
         return self
 
     def transform(self):
@@ -168,6 +145,7 @@ class ClaSP:
         profile : numpy.ndarray
             The ClaSP profile for the input time series.
         """
+        self._check_is_fitted()
         return self.profile
 
     def fit_transform(self, time_series, knn=None):
@@ -192,23 +170,42 @@ class ClaSP:
         """
         return self.fit(time_series, knn).transform()
 
-    def split(self, sparse=True):
+    def split(self, sparse=True, validation="significance_test", threshold=1e-15):
         """
-        Split the time series into two segments using the change point location.
+        Split the input time series into two segments using the change point location.
 
         Parameters
         ----------
         sparse : bool, optional
             If True, returns only the index of the change point. If False, returns the two segments
             separated by the change point. Default is True.
+        validation : str, optional
+            The validation method to use for determining the significance of the change point.
+            The available methods are "significance_test" and "score_threshold". Default is
+            "significance_test".
+        threshold : float, optional
+            The threshold value to use for the validation test. If the validation method is
+            "significance_test", this value represents the p-value threshold for rejecting the
+            null hypothesis. If the validation method is "score_threshold", this value represents
+            the threshold score for accepting the change point. Default is 1e-15.
 
         Returns
         -------
         int or tuple
             If `sparse` is True, returns the index of the change point. If False, returns a tuple
-            of the two segments separated by the change point.
+            of the two time series segments separated by the change point.
+
+        Raises
+        ------
+        ValueError
+            If the `validation` parameter is not one of the available methods.
         """
+        self._check_is_fitted()
         cp = np.argmax(self.profile)
+
+        if validation is not None:
+            validation_test = map_validation_tests(validation)
+            if not validation_test(self, cp, threshold): return None
 
         if sparse is True:
             return cp
@@ -241,6 +238,7 @@ class ClaSPEnsemble(ClaSP):
     fit(time_series)
         Create a ClaSP ensemble for the input time series data.
     """
+
     def __init__(self, n_estimators=10, window_size=10, k_neighbours=3, score="roc_auc", excl_radius=5,
                  random_state=2357):
         super().__init__(window_size, k_neighbours, score, excl_radius)
@@ -320,7 +318,7 @@ class ClaSPEnsemble(ClaSP):
                 excl_radius=self.excl_radius
             ).fit(time_series[lbound:ubound], knn=knn.constrain(lbound, ubound))
 
-            clasp.profile = (clasp.profile + (ubound - lbound) / time_series.shape[0])
+            clasp.profile = (clasp.profile + (ubound - lbound) / time_series.shape[0]) / 2
 
             if clasp.profile.max() > best_score or best_clasp is None and idx == tcs.shape[0] - 1:
                 best_score = clasp.profile.max()
@@ -333,4 +331,5 @@ class ClaSPEnsemble(ClaSP):
         lbound, ubound = best_tc
         self.profile[lbound:ubound - self.window_size + 1] = best_clasp.profile
 
+        self.is_fitted = True
         return self

@@ -26,8 +26,8 @@ class KSubsequenceNeighboursTest(unittest.TestCase):
             tcs = np.arange(0, time_series.shape[0], int(time_series.shape[0] / 5))
             tcs = [(tcs[idx], tcs[idx + 1]) for idx in range(0, len(tcs) - 1)]
 
-            knn = KSubsequenceNeighbours(window_size=window_size, temporal_constraints=tcs)
-            knn.fit(time_series)
+            knn = KSubsequenceNeighbours(window_size=window_size)
+            knn.fit(time_series, temporal_constraints=tcs)
 
             for arr in (knn.distances, knn.offsets):
                 assert arr.shape[0] == time_series.shape[0] - knn.window_size + 1

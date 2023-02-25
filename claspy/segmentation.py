@@ -3,9 +3,11 @@ from queue import PriorityQueue
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.exceptions import NotFittedError
 
 from claspy.clasp import ClaSPEnsemble
 from claspy.utils import check_input_time_series
+from claspy.window_size import map_window_size_methods
 
 
 class BinaryClaSPSegmentation:
@@ -14,20 +16,32 @@ class BinaryClaSPSegmentation:
 
     Parameters
     ----------
-    n_segments : int, default=1
-        The number of segments to split the time series into.
+    n_segments : str or int, default="learn"
+        The number of segments to split the time series into. By default, the numbers
+        of segments is inferred automatically by applying a change point validation test.
 
     n_estimators : int, default=10
         The number of ClaSPs in the ensemble.
 
-    window_size : int, default=10
-        The size of the sliding window used in the ClaSP algorithm.
+    window_size : str or int, default="suss"
+        The window size detection method or size of the sliding window used in the ClaSP
+        algorithm. Valid implementations include: 'suss', 'fft', and 'acf'.
 
     k_neighbours : int, default=3
         The number of nearest neighbors to use in the ClaSP algorithm.
 
     score : str, default="roc_auc"
         The name of the scoring metric to use in ClaSP.
+
+    validation : str, optional
+        The validation method to use for determining the significance of the change point.
+        The available methods are "significance_test" and "score_threshold". Default is
+        "significance_test".
+    threshold : float, optional
+        The threshold value to use for the validation test. If the validation method is
+        "significance_test", this value represents the p-value threshold for rejecting the
+        null hypothesis. If the validation method is "score_threshold", this value represents
+        the threshold score for accepting the change point. Default is 1e-15.
 
     excl_radius : int, default=5*window_size
         The radius (in multiples of the window size) around each point in the time series to exclude
@@ -41,17 +55,19 @@ class BinaryClaSPSegmentation:
     fit(time_series)
         Fit the BinaryClaSPSegmentation model to the input time series.
     """
-
-    def __init__(self, n_segments=1, n_estimators=10, window_size=10, k_neighbours=3, score="roc_auc", excl_radius=5,
+    def __init__(self, n_segments="learn", n_estimators=10, window_size="suss", k_neighbours=3, score="roc_auc",
+                 validation="significance_test", threshold=1e-15, excl_radius=5,
                  random_state=2357):
         self.n_segments = n_segments
         self.n_estimators = n_estimators
         self.window_size = window_size
         self.k_neighbours = k_neighbours
-        self.score_name = score
+        self.validation = validation
+        self.threshold = threshold
         self.score = score
         self.excl_radius = excl_radius
         self.random_state = random_state
+        self.is_fitted = False
 
     def _cp_is_valid(self, candidate, change_points):
         """
@@ -104,13 +120,30 @@ class BinaryClaSPSegmentation:
             random_state=self.random_state
         ).fit(self.time_series[lbound:ubound])
 
-        cp = clasp.split()
+        cp = clasp.split(validation=self.validation, threshold=self.threshold)
+        if cp is None: return
         score = clasp.profile[cp]
 
         if not self._cp_is_valid(lbound + cp, change_points): return
 
         self.clasp_tree.append(((lbound, ubound), clasp))
         self.queue.put((-score, len(self.clasp_tree) - 1))
+
+    def _check_is_fitted(self):
+        """
+        Checks if the BinaryClaSPSegmentation object is fitted.
+
+        Raises
+        ------
+        NotFittedError
+            If the BinaryClaSPSegmentation object is not fitted.
+
+        Returns
+        -------
+        None
+        """
+        if not self.is_fitted:
+            raise NotFittedError("BinaryClaSPSegmentation object is not fitted yet. Please fit the object before using this method.")
 
     def fit(self, time_series):
         """
@@ -132,6 +165,10 @@ class BinaryClaSPSegmentation:
             If the input time series has less than 2 times the minimum segment size.
         """
         check_input_time_series(time_series)
+
+        if isinstance(self.window_size, str):
+            self.window_size = map_window_size_methods(self.window_size)(time_series) // 2
+
         self.min_seg_size = self.window_size * self.excl_radius
 
         if time_series.shape[0] < 2 * self.min_seg_size:
@@ -153,17 +190,26 @@ class BinaryClaSPSegmentation:
             random_state=self.random_state
         ).fit(time_series)
 
-        self.clasp_tree.append((prange, clasp))
-        self.queue.put((-clasp.profile[clasp.split()], len(self.clasp_tree) - 1))
+        cp = clasp.split(validation=self.validation, threshold=self.threshold)
+
+        if cp is not None:
+            self.clasp_tree.append((prange, clasp))
+            self.queue.put((-clasp.profile[cp], len(self.clasp_tree) - 1))
+
+        if self.n_segments == "learn":
+            self.n_segments = time_series.shape[0] // self.min_seg_size
 
         profile = clasp.profile
         change_points = []
         scores = []
 
         for idx in range(self.n_segments - 1):
+            # happens if no valid change points exist anymore
+            if self.queue.empty() is True: break
+
             priority, clasp_tree_idx = self.queue.get()
             (lbound, ubound), clasp = self.clasp_tree[clasp_tree_idx]
-            cp = lbound + clasp.split()
+            cp = lbound + clasp.split(validation=self.validation, threshold=self.threshold)
 
             profile[lbound:ubound - self.window_size + 1] = np.max(
                 [profile[lbound:ubound - self.window_size + 1], clasp.profile], axis=0)
@@ -184,6 +230,7 @@ class BinaryClaSPSegmentation:
         profile[np.isinf(profile)] = np.nan
         self.profile = pd.Series(profile).interpolate(limit_direction="both").to_numpy()
 
+        self.is_fitted = True
         return self
 
     def predict(self, sparse=True):
@@ -200,6 +247,8 @@ class BinaryClaSPSegmentation:
         If `sparse` is True, returns an array containing the indices of the change points.
         Otherwise, returns a list of numpy arrays, where each array corresponds to a segment in the imput time series.
         """
+        self._check_is_fitted()
+
         if sparse is True:
             return self.change_points
 
@@ -249,6 +298,7 @@ class BinaryClaSPSegmentation:
         ax1, ax2 : matplotlib.Axes
             The two subplots of the resulting figure (the time series and the ClaSP plot).
         """
+        self._check_is_fitted()
         fig, (ax1, ax2) = plt.subplots(2, sharex=True, gridspec_kw={"hspace": .05}, figsize=fig_size)
 
         if gt_cps is not None:

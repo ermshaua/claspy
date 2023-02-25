@@ -184,7 +184,7 @@ def map_scores(score_name):
 
     >>> score_func = map_scores('roc_auc')
     >>> y_true = [0, 1, 1, 0, 1]
-    >>> y_score = [0.1, 0.8, 0.4, 0.3, 0.9]
+    >>> y_score = [0, 1, 0, 0, 1]
     >>> score = score_func(y_score, y_true)
     """
     if score_name not in _SCORE_MAPPING:
