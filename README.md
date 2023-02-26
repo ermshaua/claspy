@@ -4,7 +4,7 @@
 Time series segmentation (TSS) tries to partition a time series (TS) into semantically meaningful segments. It's an important unsupervised learning task applied to large, real-world sensor signals for human inspection, change point detection or as preprocessing for classification and anomaly detection. This python library is the official implementation of the accurate and domain-agnostic TSS algorithm ClaSP.
 
 ## Installation
-You can install ClaSPy with PyPi:
+You can install ClaSPy with PyPi: 
 `python -m pip install claspy` 
 
 ## Usage
