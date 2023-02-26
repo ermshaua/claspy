@@ -45,7 +45,7 @@ class BinaryClaSPSegmentation:
 
     excl_radius : int, default=5*window_size
         The radius (in multiples of the window size) around each point in the time series to exclude
-        when searching for nearest neighbors.
+        when searching for change points.
 
     random_state : int, default=2357
         Seed for the random number generator. Default is 2357.
