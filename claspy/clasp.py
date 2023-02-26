@@ -63,6 +63,10 @@ class ClaSP:
     -------
     fit(time_series)
         Create a ClaSP for the input time series data.
+    predict()
+        Return the ClaSP for the input time series data.
+    fit_predict(time_series)
+        Create and return a ClaSP for the input time series data.
     split()
         Split ClaSP into two segments.
     """
@@ -237,6 +241,10 @@ class ClaSPEnsemble(ClaSP):
     -------
     fit(time_series)
         Create a ClaSP ensemble for the input time series data.
+    predict()
+        Return the ClaSP ensemble for the input time series data.
+    fit_predict(time_series)
+        Create and return a ClaSP ensemble for the input time series data.
     """
 
     def __init__(self, n_estimators=10, window_size=10, k_neighbours=3, score="roc_auc", excl_radius=5,

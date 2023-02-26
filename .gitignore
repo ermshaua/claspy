@@ -135,7 +135,7 @@ dmypy.json
 .code/
 
 #tests
-claspy/tests/data/
+claspy/data/
 
 # Apple
 .DS_Store

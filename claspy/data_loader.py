@@ -16,7 +16,8 @@ TSSB_URL = (
     "https://raw.githubusercontent.com/ermshaua/"
     "time-series-segmentation-benchmark/main/tssb/datasets/"
 )
-DIRNAME = "data/tssb"
+
+TSSB_DIRNAME = "data/tssb"
 MODULE = os.path.dirname(__file__)
 
 
@@ -31,7 +32,7 @@ def load_tssb_dataset(names=None, extract_path=None):
     For examples see https://github.com/ermshaua/time-series-segmentation-benchmark.
     Parameters
     ----------
-    names : str
+    names : List[str]
         List of names of data sets. If an available dataset is given,
         this function will look in the extract_path first, and if it is not present,
         attempt to download the data from the TSSB GitHub repository,
@@ -52,7 +53,7 @@ def load_tssb_dataset(names=None, extract_path=None):
         local_dirname = extract_path
     else:
         local_module = MODULE
-        local_dirname = DIRNAME
+        local_dirname = TSSB_DIRNAME
 
     if not os.path.exists(os.path.join(local_module, local_dirname)):
         os.makedirs(os.path.join(local_module, local_dirname))

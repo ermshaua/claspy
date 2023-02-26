@@ -34,7 +34,7 @@ setup(
     },
     packages=find_packages(
         where=".",
-        exclude=["tests", "tests.*"],
+        exclude=["data", "tests", "tests.*"],
     ),
     project_urls=pyproject["project"]["urls"],
     python_requires=pyproject["project"]["requires-python"],

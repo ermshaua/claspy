@@ -54,6 +54,12 @@ class BinaryClaSPSegmentation:
     -------
     fit(time_series)
         Fit the BinaryClaSPSegmentation model to the input time series.
+    predict()
+        Predict a segmentation for the input time series.
+    fit_predict(time_series)
+        Fit the BinaryClaSPSegmentation model and predict a segmentation to the input time series.
+    plot()
+        Visualize the segmentation for the input time series.
     """
     def __init__(self, n_segments="learn", n_estimators=10, window_size="suss", k_neighbours=3, score="roc_auc",
                  validation="significance_test", threshold=1e-15, excl_radius=5,
@@ -306,7 +312,7 @@ class BinaryClaSPSegmentation:
             for idx in np.arange(0, len(segments) - 1):
                 ax1.plot(np.arange(segments[idx], segments[idx + 1]), self.time_series[segments[idx]:segments[idx + 1]])
 
-            ax2.plot(np.arange(self.profile.shape[0]), self.profile, color="b")
+            ax2.plot(np.arange(self.profile.shape[0]), self.profile, color="black")
         else:
             ax1.plot(np.arange(self.time_series.shape[0]), self.time_series)
             ax2.plot(np.arange(self.profile.shape[0]), self.profile)
@@ -315,7 +321,7 @@ class BinaryClaSPSegmentation:
             ax1.set_title(heading, fontsize=font_size)
 
         if ts_name is not None:
-            ax2.set_ylabel(heading, fontsize=font_size)
+            ax1.set_ylabel(ts_name, fontsize=font_size)
 
         ax2.set_xlabel("split point", fontsize=font_size)
         ax2.set_ylabel("ClaSP Score", fontsize=font_size)
