@@ -1,5 +1,5 @@
 # ClaSPy: A Python package for time series segmentation
-[![PyPI version](https://badge.fury.io/py/claspy.svg)](https://pypi.org/project/claspy/) [![Build Status](https://travis-ci.com/ermshaua/claspy.svg?branch=master)](https://travis-ci.com/ermshaua/claspy) [![Downloads](https://pepy.tech/badge/claspy)](https://pepy.tech/project/claspy)
+[![PyPI version](https://badge.fury.io/py/claspy.svg)](https://pypi.org/project/claspy/) [![Build Status](https://app.travis-ci.com/ermshaua/claspy.svg?branch=main)](https://app.travis-ci.com/ermshaua/claspy) [![Downloads](https://pepy.tech/badge/claspy)](https://pepy.tech/project/claspy)
 
 Time series segmentation (TSS) tries to partition a time series (TS) into semantically meaningful segments. It's an important unsupervised learning task applied to large, real-world sensor signals for human inspection, change point detection or as preprocessing for classification and anomaly detection. This python library is the official implementation of the accurate and domain-agnostic TSS algorithm ClaSP.
 
