@@ -31,7 +31,7 @@ ClaSP is fully interpretable to human inspection. It creates a score profile (be
 clasp.plot(gt_cps=true_cps, heading="Segmentation of different umpire cricket signals", ts_name="ACC", file_path="segmentation_example.png")
 ```
 
-<img src="segmentation_example.png" />
+<img src="https://raw.githubusercontent.com/ermshaua/claspy/main/segmentation_example.png" />
 
 ClaSP accurately detects the number and location of changes in the motion sequence (compare green vs red lines) that infer its segmentation (the different-coloured subsequences). It is carefully designed to do this fully autonomously. However, if you have domain-specific knowledge, you can utilize it to guide and improve the segmentation. See its <a href="https://github.com/ermshaua/claspy/blob/main/claspy/segmentation.py">parameters</a> for more information.  
 

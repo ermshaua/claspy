@@ -5,7 +5,7 @@ from sklearn.exceptions import NotFittedError
 from claspy.nearest_neighbour import KSubsequenceNeighbours
 from claspy.nearest_neighbour import cross_val_labels
 from claspy.scoring import map_scores
-from claspy.utils import check_input_time_series
+from claspy.utils import check_input_time_series, check_excl_radius
 from claspy.validation import map_validation_tests
 
 
@@ -78,6 +78,8 @@ class ClaSP:
         self.score = map_scores(score)
         self.excl_radius = excl_radius
         self.is_fitted = False
+
+        check_excl_radius(k_neighbours, excl_radius)
 
     def _check_is_fitted(self):
         """

@@ -2,6 +2,8 @@ import numpy as np
 import numpy.fft as fft
 from numba import njit
 
+from claspy.utils import check_input_time_series
+
 
 def _sliding_dot(query, time_series):
     """
@@ -328,6 +330,7 @@ class KSubsequenceNeighbours:
         self : KSubsequenceNeighbours
             A reference to the fitted model.
         """
+        check_input_time_series(time_series)
         self.time_series = time_series
 
         if temporal_constraints is None:

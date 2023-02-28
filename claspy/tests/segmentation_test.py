@@ -59,7 +59,8 @@ class SegmentationTest(unittest.TestCase):
                     k_neighbours=k,
                     score=score,
                     validation=val,
-                    threshold=thresholds[val] if val is not None else None
+                    threshold=thresholds[val] if val is not None else None,
+                    excl_radius=max(5, k + 1)
                 ).fit(time_series)
 
     def test_readme(self):
@@ -70,4 +71,12 @@ class SegmentationTest(unittest.TestCase):
         print(change_points)
         clasp.plot(gt_cps=true_cps, heading="Segmentation of different umpire cricket signals", ts_name="ACC", file_path="../../segmentation_example.png")
 
+    def test_very_small_ts(self):
+        time_series = np.zeros(0)
+        clasp = BinaryClaSPSegmentation()
+        clasp.fit_predict(time_series)
+
+        time_series = np.zeros(1)
+        clasp = BinaryClaSPSegmentation()
+        clasp.fit_predict(time_series)
 

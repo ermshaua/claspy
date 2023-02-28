@@ -1,3 +1,4 @@
+import warnings
 from queue import PriorityQueue
 
 import matplotlib.pyplot as plt
@@ -6,7 +7,7 @@ import pandas as pd
 from sklearn.exceptions import NotFittedError
 
 from claspy.clasp import ClaSPEnsemble
-from claspy.utils import check_input_time_series
+from claspy.utils import check_input_time_series, check_excl_radius
 from claspy.window_size import map_window_size_methods
 
 
@@ -31,7 +32,8 @@ class BinaryClaSPSegmentation:
         The number of nearest neighbors to use in the ClaSP algorithm.
 
     score : str, default="roc_auc"
-        The name of the scoring metric to use in ClaSP.
+        The name of the scoring metric to use in ClaSP. Available options are "roc_auc",
+        "f1".
 
     validation : str, optional
         The validation method to use for determining the significance of the change point.
@@ -57,10 +59,11 @@ class BinaryClaSPSegmentation:
     predict()
         Predict a segmentation for the input time series.
     fit_predict(time_series)
-        Fit the BinaryClaSPSegmentation model and predict a segmentation to the input time series.
+        Fit the BinaryClaSPSegmentation model and predict a segmentation for the input time series.
     plot()
         Visualize the segmentation for the input time series.
     """
+
     def __init__(self, n_segments="learn", n_estimators=10, window_size="suss", k_neighbours=3, score="roc_auc",
                  validation="significance_test", threshold=1e-15, excl_radius=5,
                  random_state=2357):
@@ -74,6 +77,8 @@ class BinaryClaSPSegmentation:
         self.excl_radius = excl_radius
         self.random_state = random_state
         self.is_fitted = False
+
+        check_excl_radius(k_neighbours, excl_radius)
 
     def _cp_is_valid(self, candidate, change_points):
         """
@@ -100,7 +105,7 @@ class BinaryClaSPSegmentation:
 
     def _local_segmentation(self, lbound, ubound, change_points):
         """
-        Perform local segmentation of the time series within the range [lbound, ubound) using ClaSP algorithm.
+        Perform local segmentation of the time series within the range [lbound, ubound) using the ClaSP algorithm.
 
         Parameters:
         -----------
@@ -149,7 +154,8 @@ class BinaryClaSPSegmentation:
         None
         """
         if not self.is_fitted:
-            raise NotFittedError("BinaryClaSPSegmentation object is not fitted yet. Please fit the object before using this method.")
+            raise NotFittedError(
+                "BinaryClaSPSegmentation object is not fitted yet. Please fit the object before using this method.")
 
     def fit(self, time_series):
         """
@@ -173,12 +179,13 @@ class BinaryClaSPSegmentation:
         check_input_time_series(time_series)
 
         if isinstance(self.window_size, str):
-            self.window_size = map_window_size_methods(self.window_size)(time_series) // 2
+            self.window_size = max(1, map_window_size_methods(self.window_size)(time_series) // 2)
 
         self.min_seg_size = self.window_size * self.excl_radius
 
         if time_series.shape[0] < 2 * self.min_seg_size:
-            raise ValueError("Time series must at least have 2*min_seg_size data points.")
+            warnings.warn("Time series must at least have 2*min_seg_size data points. Quitting.")
+            self.n_segments = 1
 
         self.time_series = time_series
         self.n_timepoints = time_series.shape[0]
@@ -186,26 +193,30 @@ class BinaryClaSPSegmentation:
         self.queue = PriorityQueue()
         self.clasp_tree = []
 
-        prange = 0, time_series.shape[0]
-        clasp = ClaSPEnsemble(
-            n_estimators=self.n_estimators,
-            window_size=self.window_size,
-            k_neighbours=self.k_neighbours,
-            score=self.score,
-            excl_radius=self.excl_radius,
-            random_state=self.random_state
-        ).fit(time_series)
-
-        cp = clasp.split(validation=self.validation, threshold=self.threshold)
-
-        if cp is not None:
-            self.clasp_tree.append((prange, clasp))
-            self.queue.put((-clasp.profile[cp], len(self.clasp_tree) - 1))
-
         if self.n_segments == "learn":
             self.n_segments = time_series.shape[0] // self.min_seg_size
 
-        profile = clasp.profile
+        if self.n_segments > 1:
+            prange = 0, time_series.shape[0]
+            clasp = ClaSPEnsemble(
+                n_estimators=self.n_estimators,
+                window_size=self.window_size,
+                k_neighbours=self.k_neighbours,
+                score=self.score,
+                excl_radius=self.excl_radius,
+                random_state=self.random_state
+            ).fit(time_series)
+
+            cp = clasp.split(validation=self.validation, threshold=self.threshold)
+
+            if cp is not None:
+                self.clasp_tree.append((prange, clasp))
+                self.queue.put((-clasp.profile[cp], len(self.clasp_tree) - 1))
+
+            profile = clasp.profile
+        else:
+            profile = np.full(shape=self.n_timepoints - self.window_size + 1, fill_value=-np.inf, dtype=np.float64)
+
         change_points = []
         scores = []
 
@@ -315,7 +326,7 @@ class BinaryClaSPSegmentation:
             ax2.plot(np.arange(self.profile.shape[0]), self.profile, color="black")
         else:
             ax1.plot(np.arange(self.time_series.shape[0]), self.time_series)
-            ax2.plot(np.arange(self.profile.shape[0]), self.profile)
+            ax2.plot(np.arange(self.profile.shape[0]), self.profile, color="black")
 
         if heading is not None:
             ax1.set_title(heading, fontsize=font_size)

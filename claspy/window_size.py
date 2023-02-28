@@ -1,9 +1,12 @@
 import math
+import warnings
 
 import numpy as np
 import pandas as pd
 from scipy.signal import find_peaks
 from statsmodels.tsa.stattools import acf
+
+from claspy.utils import check_input_time_series
 
 
 def _suss_score(time_series, window_size, stats):
@@ -65,6 +68,12 @@ def suss(time_series, lbound=10, threshold=.89):
     int
         The window size for the time series.
     """
+    check_input_time_series(time_series)
+
+    if time_series.shape[0] <= lbound:
+        warnings.warn("Time series must at least have lbound much data points.")
+        return time_series.shape[0]
+
     time_series = (time_series - time_series.min()) / (time_series.max() - time_series.min())
 
     ts_mean = np.mean(time_series)
@@ -128,6 +137,12 @@ def dominant_fourier_frequency(time_series, lbound=10, ubound=1000):
     int
         The dominant Fourier frequency's corresponding window size within the specified range.
     """
+    check_input_time_series(time_series)
+
+    if time_series.shape[0] <= lbound:
+        warnings.warn("Time series must at least have lbound much data points.")
+        return time_series.shape[0]
+
     fourier = np.fft.fft(time_series)
     freq = np.fft.fftfreq(time_series.shape[0], 1)
 
@@ -167,6 +182,12 @@ def highest_autocorrelation(time_series, lbound=10, ubound=1000):
         The window size corresponding to the highest autocorrelation within the specified bounds.
         Returns lbound if no peaks are found within the specified bounds.
     """
+    check_input_time_series(time_series)
+
+    if time_series.shape[0] <= lbound:
+        warnings.warn("Time series must at least have lbound much data points.")
+        return time_series.shape[0]
+
     acf_values = acf(time_series, fft=True, nlags=int(time_series.shape[0] / 2))
 
     peaks, _ = find_peaks(acf_values)
@@ -182,7 +203,7 @@ def highest_autocorrelation(time_series, lbound=10, ubound=1000):
 _WINDOW_SIZE_MAPPING = {
     "suss": suss,
     "fft": dominant_fourier_frequency,
-    "acf" : highest_autocorrelation
+    "acf": highest_autocorrelation
 }
 
 
