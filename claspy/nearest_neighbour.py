@@ -103,8 +103,9 @@ def _sliding_mean_std(time_series, window_size):
     segSumSq = sSq[window_size:] - sSq[:-window_size]
 
     movmean = segSum / window_size
-    # todo: handle this as implemented in sktime
-    movstd = np.sqrt(1e-9 + segSumSq / window_size - (segSum / window_size) ** 2)
+
+    movstd = np.sqrt(np.clip(segSumSq / window_size - (segSum / window_size) ** 2, 0, None))
+    movstd = np.where(np.abs(movstd) < 1e-3, 1, movstd)
 
     return [movmean, movstd]
 
