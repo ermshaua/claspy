@@ -35,6 +35,10 @@ class BinaryClaSPSegmentation:
         The name of the scoring metric to use in ClaSP. Available options are "roc_auc",
         "f1".
 
+    early_stopping : bool
+        Determines if ensembling is stopped, once a validated change point is found or
+        the ClaSP models do not improve anymore. Default is True.
+
     validation : str, optional
         The validation method to use for determining the significance of the change point.
         The available methods are "significance_test" and "score_threshold". Default is
@@ -65,7 +69,7 @@ class BinaryClaSPSegmentation:
     """
 
     def __init__(self, n_segments="learn", n_estimators=10, window_size="suss", k_neighbours=3, score="roc_auc",
-                 validation="significance_test", threshold=1e-15, excl_radius=5,
+                 early_stopping=True, validation="significance_test", threshold=1e-15, excl_radius=5,
                  random_state=2357):
         self.n_segments = n_segments
         self.n_estimators = n_estimators
@@ -74,6 +78,7 @@ class BinaryClaSPSegmentation:
         self.validation = validation
         self.threshold = threshold
         self.score = score
+        self.early_stopping = early_stopping
         self.excl_radius = excl_radius
         self.random_state = random_state
         self.is_fitted = False
@@ -127,9 +132,10 @@ class BinaryClaSPSegmentation:
             window_size=self.window_size,
             k_neighbours=self.k_neighbours,
             score=self.score,
+            early_stopping=self.early_stopping,
             excl_radius=self.excl_radius,
             random_state=self.random_state
-        ).fit(self.time_series[lbound:ubound])
+        ).fit(self.time_series[lbound:ubound], validation=self.validation, threshold=self.threshold)
 
         cp = clasp.split(validation=self.validation, threshold=self.threshold)
         if cp is None: return
@@ -203,9 +209,10 @@ class BinaryClaSPSegmentation:
                 window_size=self.window_size,
                 k_neighbours=self.k_neighbours,
                 score=self.score,
+                early_stopping=self.early_stopping,
                 excl_radius=self.excl_radius,
                 random_state=self.random_state
-            ).fit(time_series)
+            ).fit(time_series, validation=self.validation, threshold=self.threshold)
 
             cp = clasp.split(validation=self.validation, threshold=self.threshold)
 

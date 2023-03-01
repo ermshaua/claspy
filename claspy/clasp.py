@@ -234,6 +234,9 @@ class ClaSPEnsemble(ClaSP):
     score : str or callable, optional
         The scoring method to use in the profile scoring. Must be a string ("f1" "roc_auc",).
         Default is "roc_auc".
+    early_stopping : bool
+        Determines if ensembling is stopped, once a validated change point is found or
+        the ClaSP models do not improve anymore. Default is True.
     excl_radius : int, optional
         The radius of the exclusion zone in the profile scoring. Default is 5*window_size.
     random_state : int or RandomState, optional
@@ -249,10 +252,12 @@ class ClaSPEnsemble(ClaSP):
         Create and return a ClaSP ensemble for the input time series data.
     """
 
-    def __init__(self, n_estimators=10, window_size=10, k_neighbours=3, score="roc_auc", excl_radius=5,
+    def __init__(self, n_estimators=10, window_size=10, k_neighbours=3, score="roc_auc", early_stopping=True,
+                 excl_radius=5,
                  random_state=2357):
         super().__init__(window_size, k_neighbours, score, excl_radius)
         self.n_estimators = n_estimators
+        self.early_stopping = early_stopping
         self.random_state = random_state
 
     def _calculate_temporal_constraints(self):
@@ -277,9 +282,9 @@ class ClaSPEnsemble(ClaSP):
             if ubound - lbound < 2 * self.min_seg_size: continue
             tcs.append((lbound, ubound))
 
-        return np.asarray(tcs, dtype=np.int64)
+        return np.asarray(sorted(tcs, key=lambda tc: tc[1] - tc[0], reverse=True), dtype=np.int64)
 
-    def fit(self, time_series, knn=None):
+    def fit(self, time_series, knn=None, validation="significance_test", threshold=1e-15):
         """
         Fits the ClaSP ensemble on the given time series, using temporal constraints to so that
         each ClaSP instance works on different (but possibly overlapping) parts of the time series.
@@ -292,6 +297,15 @@ class ClaSPEnsemble(ClaSP):
             The precomputed KSubsequenceNeighbours object to use. If None, it will be computed
             using `KSubsequenceNeighbours` with the `window_size` and `k_neighbours` parameters
             passed during the object initialization.
+        validation : str, optional
+            The validation method to use for determining the significance of the change point
+            when early stopping is activated. The available methods are "significance_test" and
+            "score_threshold". Default is "significance_test".
+        threshold : float, optional
+            The threshold value to use for the validation test. If the validation method is
+            "significance_test", this value represents the p-value threshold for rejecting the
+            null hypothesis. If the validation method is "score_threshold", this value represents
+            the threshold score for accepting the change point. Default is 1e-15.
 
         Returns
         -------
@@ -334,6 +348,11 @@ class ClaSPEnsemble(ClaSP):
                 best_score = clasp.profile.max()
                 best_tc = (lbound, ubound)
                 best_clasp = clasp
+            else:
+                if self.early_stopping is True: break
+
+            if self.early_stopping is True and best_clasp.split(validation=validation, threshold=threshold) is not None:
+                break
 
         self.knn = best_clasp.knn
         self.profile = np.full(shape=time_series.shape[0] - self.window_size + 1, fill_value=-np.inf, dtype=np.float64)

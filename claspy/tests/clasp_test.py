@@ -31,7 +31,7 @@ class ClaSPTest(unittest.TestCase):
         for _, (dataset, window_size, cps, time_series) in tssb.iterrows():
             for window_size, k, score in product(window_sizes, k_neighbours, scores):
                 if time_series.shape[0] < 2 * 5 * window_size: continue
-                clasp = ClaSP(window_size=window_size, k_neighbours=k, score=score, excl_radius=max(5, k+1))
+                clasp = ClaSP(window_size=window_size, k_neighbours=k, score=score, excl_radius=max(5, k + 1))
                 clasp.fit(time_series)
                 assert clasp.profile.shape[0] == time_series.shape[0] - clasp.window_size + 1
 
@@ -56,10 +56,17 @@ class ClaSPEnsembleTest(unittest.TestCase):
         window_sizes = (10, 50, 100)
         k_neighbours = (1, 3, 5)
         scores = ("f1", "roc_auc")
+        early_stopping = (True, False)
 
         for _, (dataset, window_size, cps, time_series) in tssb.iterrows():
-            for window_size, k, score in product(window_sizes, k_neighbours, scores):
+            for window_size, k, score, stop in product(window_sizes, k_neighbours, scores, early_stopping):
                 if time_series.shape[0] < 2 * 5 * window_size: continue
-                clasp = ClaSPEnsemble(window_size=window_size, k_neighbours=k, score=score, excl_radius=max(5, k+1))
+                clasp = ClaSPEnsemble(
+                    window_size=window_size,
+                    k_neighbours=k,
+                    score=score,
+                    early_stopping=stop,
+                    excl_radius=max(5, k + 1)
+                )
                 clasp.fit(time_series)
                 assert clasp.profile.shape[0] == time_series.shape[0] - clasp.window_size + 1
