@@ -33,7 +33,13 @@ clasp.plot(gt_cps=true_cps, heading="Segmentation of different umpire cricket si
 
 <img src="https://raw.githubusercontent.com/ermshaua/claspy/main/segmentation_example.png" />
 
-ClaSP accurately detects the number and location of changes in the motion sequence (compare green vs red lines) that infer its segmentation (the different-coloured subsequences). It is carefully designed to do this fully autonomously. However, if you have domain-specific knowledge, you can utilize it to guide and improve the segmentation. See its <a href="https://github.com/ermshaua/claspy/blob/main/claspy/segmentation.py">parameters</a> for more information.  
+ClaSP accurately detects the number and location of changes in the motion sequence (compare green vs red lines) that infer its segmentation (the different-coloured subsequences). It is carefully designed to do this fully autonomously. However, if you have domain-specific knowledge, you can utilize it to guide and improve the segmentation. See its <a href="https://github.com/ermshaua/claspy/blob/main/claspy/segmentation.py">parameters</a> for more information.
+
+## Examples
+
+Checkout the following Jupyter notebooks that show applications of the ClaSPy package:
+
+- <a href="https://github.com/ermshaua/claspy/blob/main/claspy/notebooks/tssb_evaluation.ipynb">ClaSP evaluation on the "Time Series Segmentation Benchmark" (TSSB)</a>
 
 ## Citation
 
@@ -47,12 +53,6 @@ The ClaSPy package is actively maintained, updated and intended for application.
   year={2023},
 }
 ```
-
-## Examples
-
-Checkout the following jupyter notebooks that show applications of the ClaSPy package:
-
-- <a href="https://github.com/ermshaua/claspy/blob/main/claspy/notebooks/tssb_evaluation.py">ClaSP evaluation on the "Time Series Segmentation Benchmark" (TSSB)</a>
 
 ## Todos
 
