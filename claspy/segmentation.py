@@ -190,7 +190,9 @@ class BinaryClaSPSegmentation:
         self.min_seg_size = self.window_size * self.excl_radius
 
         if time_series.shape[0] < 2 * self.min_seg_size:
-            warnings.warn("Time series must at least have 2*min_seg_size data points. Quitting.")
+            warnings.warn(
+                "Time series must at least have 2*min_seg_size data points for segmentation. Try setting "
+                "a smaller window size.")
             self.n_segments = 1
 
         self.time_series = time_series

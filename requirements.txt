@@ -8,3 +8,4 @@ toml>=0.10.2
 setuptools>=65.6.3
 statsmodels>=0.13.5
 matplotlib>=3.6.2
+daproli>=0.22

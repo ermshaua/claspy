@@ -48,6 +48,12 @@ The ClaSPy package is actively maintained, updated and intended for application.
 }
 ```
 
+## Examples
+
+Checkout the following jupyter notebooks that show applications of the ClaSPy package:
+
+- <a href="https://github.com/ermshaua/claspy/blob/main/claspy/notebooks/tssb_evaluation.py">ClaSP evaluation on the "Time Series Segmentation Benchmark" (TSSB)</a>
+
 ## Todos
 
 Here are some of the things we would like to add to ClaSPy in the future:
