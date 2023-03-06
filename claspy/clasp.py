@@ -53,6 +53,9 @@ class ClaSP:
         The size of the window used for computing distances and offsets, by default 10.
     k_neighbours : int, optional
         The number of nearest neighbors to consider when computing distances and offsets, by default 3.
+    distance: str
+        The name of the distance function to be computed for determining the k-NNs. Available options are
+        "znormed_euclidean_distance" and "euclidean_distance".
     score : str or callable, optional
         The name of the classification score to use.
         Available options are "roc_auc", "f1", by default "roc_auc".
@@ -71,9 +74,11 @@ class ClaSP:
         Split ClaSP into two segments.
     """
 
-    def __init__(self, window_size=10, k_neighbours=3, score="roc_auc", excl_radius=5):
+    def __init__(self, window_size=10, k_neighbours=3, distance="znormed_euclidean_distance", score="roc_auc",
+                 excl_radius=5):
         self.window_size = window_size
         self.k_neighbours = k_neighbours
+        self.distance = distance
         self.score_name = score
         self.score = map_scores(score)
         self.excl_radius = excl_radius
@@ -132,7 +137,8 @@ class ClaSP:
         if knn is None:
             self.knn = KSubsequenceNeighbours(
                 window_size=self.window_size,
-                k_neighbours=self.k_neighbours
+                k_neighbours=self.k_neighbours,
+                distance=self.distance
             ).fit(time_series)
         else:
             self.knn = knn
@@ -231,6 +237,9 @@ class ClaSPEnsemble(ClaSP):
         The size of the window used for the k-subsequence neighbours. Default is 10.
     k_neighbours : int, optional
         The number of nearest neighbours to consider in the k-subsequence method. Default is 3.
+    distance: str
+        The name of the distance function to be computed for determining the k-NNs. Available options are
+        "znormed_euclidean_distance" and "euclidean_distance".
     score : str or callable, optional
         The scoring method to use in the profile scoring. Must be a string ("f1" "roc_auc",).
         Default is "roc_auc".
@@ -252,10 +261,11 @@ class ClaSPEnsemble(ClaSP):
         Create and return a ClaSP ensemble for the input time series data.
     """
 
-    def __init__(self, n_estimators=10, window_size=10, k_neighbours=3, score="roc_auc", early_stopping=True,
+    def __init__(self, n_estimators=10, window_size=10, k_neighbours=3, distance="znormed_euclidean_distance",
+                 score="roc_auc", early_stopping=True,
                  excl_radius=5,
                  random_state=2357):
-        super().__init__(window_size, k_neighbours, score, excl_radius)
+        super().__init__(window_size, k_neighbours, distance, score, excl_radius)
         self.n_estimators = n_estimators
         self.early_stopping = early_stopping
         self.random_state = random_state
@@ -330,6 +340,7 @@ class ClaSPEnsemble(ClaSP):
             knn = KSubsequenceNeighbours(
                 window_size=self.window_size,
                 k_neighbours=self.k_neighbours,
+                distance=self.distance
             ).fit(time_series, temporal_constraints=tcs)
 
         best_score, best_tc, best_clasp = -np.inf, None, None

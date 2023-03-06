@@ -1,9 +1,10 @@
 import unittest
+from itertools import product
 
 import numpy as np
 
-from claspy.nearest_neighbour import KSubsequenceNeighbours
 from claspy.data_loader import load_tssb_dataset
+from claspy.nearest_neighbour import KSubsequenceNeighbours
 
 
 class KSubsequenceNeighboursTest(unittest.TestCase):
@@ -20,6 +21,24 @@ class KSubsequenceNeighboursTest(unittest.TestCase):
             for arr in (knn.distances, knn.offsets):
                 assert arr.shape[0] == time_series.shape[0] - knn.window_size + 1
                 assert arr.shape[1] == knn.k_neighbours
+
+    def test_param_configs(self):
+        tssb = load_tssb_dataset()
+        np.random.seed(2357)
+        tssb = tssb.sample(3)
+
+        window_sizes = (10, 50, 100)
+        k_neighbours = (1, 3, 5)
+        distances = ("znormed_euclidean_distance", "euclidean_distance")
+
+        for _, (dataset, window_size, cps, time_series) in tssb.iterrows():
+            for window_size, k, dist in product(window_sizes, k_neighbours, distances):
+                knn = KSubsequenceNeighbours(window_size=window_size)
+                knn.fit(time_series)
+
+                for arr in (knn.distances, knn.offsets):
+                    assert arr.shape[0] == time_series.shape[0] - knn.window_size + 1
+                    assert arr.shape[1] == knn.k_neighbours
 
     def test_constraints(self):
         tssb = load_tssb_dataset()

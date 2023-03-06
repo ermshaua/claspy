@@ -2,6 +2,7 @@ import numpy as np
 import numpy.fft as fft
 from numba import njit
 
+from claspy.distance import map_distances
 from claspy.utils import check_input_time_series
 
 
@@ -56,58 +57,6 @@ def _sliding_dot(query, time_series):
     trim = m - 1 + time_series_add
     dot_product = fft.irfft(fft.rfft(time_series) * fft.rfft(query))
     return dot_product[trim:]
-
-
-@njit(fastmath=True, cache=True)
-def _sliding_mean_std(time_series, window_size):
-    """
-    Calculate sliding mean and standard deviation of a time series.
-    The sliding mean and standard deviation are calculated by computing
-    the mean and standard deviation over a sliding window of fixed size,
-    which is moved over the time series with a stride of one element at
-    a time.
-
-    Parameters
-    ----------
-    time_series : array-like of shape (n,)
-        The time series sequence.
-    window_size : int
-        The size of the sliding window.
-
-    Returns
-    -------
-    movmean : ndarray of shape (n - window_size + 1,)
-        The sliding mean of the time series.
-    movstd : ndarray of shape (n - window_size + 1,)
-        The sliding standard deviation of the time series.
-
-    Notes
-    -----
-    This function calculates the sliding mean and standard deviation of
-    the input time series using a sliding window approach. It first computes
-    the cumulative sum and cumulative sum of squares of the time series, then
-    computes the window sum and window sum of squares for each sliding window.
-    Finally, it computes the mean and standard deviation over each window and
-    returns the results.
-
-    Examples
-    --------
-    >>> time_series = [1, 2, 3, 4, 5, 6, 7]
-    >>> window_size = 3
-    >>> movmean, movstd = _sliding_mean_std(time_series, window_size)
-    """
-    s = np.concatenate((np.zeros(1, dtype=np.float64), np.cumsum(time_series)))
-    sSq = np.concatenate((np.zeros(1, dtype=np.float64), np.cumsum(time_series ** 2)))
-
-    segSum = s[window_size:] - s[:-window_size]
-    segSumSq = sSq[window_size:] - sSq[:-window_size]
-
-    movmean = segSum / window_size
-
-    movstd = np.sqrt(np.clip(segSumSq / window_size - (segSum / window_size) ** 2, 0, None))
-    movstd = np.where(np.abs(movstd) < 1e-3, 1, movstd)
-
-    return [movmean, movstd]
 
 
 @njit(fastmath=True, cache=True)
@@ -172,7 +121,7 @@ def _argkmin(dist, k):
 
 
 @njit(fastmath=True, cache=True)
-def _knn(time_series, window_size, k_neighbours, tcs, dot_first):
+def _knn(time_series, window_size, k_neighbours, tcs, dot_first, distance, distance_preprocessing):
     """
     Perform k-nearest neighbors search between all pairs of subsequences of `time_series`
     of length `window_size`, based on their Euclidean distance after normalization by mean and
@@ -190,6 +139,10 @@ def _knn(time_series, window_size, k_neighbours, tcs, dot_first):
         Temporal constraints to consider.
     dot_first : ndarray of shape (n - window_size + 1,)
         Dot product of the first sliding window with itself.
+    distance: callable
+        The distance function to be computed.
+    distance_preprocessing: callable
+        The distance preprocessing function to be computed.
 
     Returns
     -------
@@ -205,7 +158,7 @@ def _knn(time_series, window_size, k_neighbours, tcs, dot_first):
     dists = np.zeros(shape=(l, len(tcs) * k_neighbours), dtype=np.float64)
 
     dot_prev = None
-    means, stds = _sliding_mean_std(time_series, window_size)
+    preprocessing = distance_preprocessing(time_series, window_size)
 
     for order in range(0, l):
         if order == 0:
@@ -216,11 +169,7 @@ def _knn(time_series, window_size, k_neighbours, tcs, dot_first):
                          time_series[order - 1] * np.roll(time_series[:l], 1)
             dot_rolled[0] = dot_first[order]
 
-        x_mean = means[order]
-        x_std = stds[order]
-
-        # dist is squared
-        dist = 2 * window_size * (1 - (dot_rolled - window_size * means * x_mean) / (window_size * stds * x_std))
+        dist = distance(order, dot_rolled, window_size, preprocessing)
 
         # self-join: exclusion zone
         trivialMatchRange = (
@@ -233,7 +182,7 @@ def _knn(time_series, window_size, k_neighbours, tcs, dot_first):
         for kdx, (lbound, ubound) in enumerate(tcs):
             if order < lbound or order >= ubound: continue
 
-            tc_nn = lbound + _argkmin(dist[lbound:ubound-window_size+1], k_neighbours)
+            tc_nn = lbound + _argkmin(dist[lbound:ubound - window_size + 1], k_neighbours)
 
             knns[order, kdx * k_neighbours:(kdx + 1) * k_neighbours] = tc_nn
             dists[order, kdx * k_neighbours:(kdx + 1) * k_neighbours] = dist[tc_nn]
@@ -299,6 +248,9 @@ class KSubsequenceNeighbours:
         Length of subsequence window.
     k_neighbours : int, optional (default=3)
         Number of nearest neighbors to return for each time series subsequence.
+    distance: str
+        The name of the distance function to be computed. Available options are "znormed_euclidean_distance"
+        and "euclidean_distance".
 
     Methods
     -------
@@ -307,9 +259,12 @@ class KSubsequenceNeighbours:
     constrain(self, lbound, ubound)
         Return a constrained KSN model for the given temporal constraint.
     """
-    def __init__(self, window_size=10, k_neighbours=3):
+
+    def __init__(self, window_size=10, k_neighbours=3, distance="znormed_euclidean_distance"):
         self.window_size = window_size
         self.k_neighbours = k_neighbours
+        self.distance_name = distance
+        self.distance_preprocessing, self.distance = map_distances(distance)
 
     def fit(self, time_series, temporal_constraints=None):
         """
@@ -341,7 +296,7 @@ class KSubsequenceNeighbours:
 
         dot_first = _sliding_dot(time_series[:self.window_size], time_series)
         self.distances, self.offsets = _knn(time_series, self.window_size, self.k_neighbours, self.temporal_constraints,
-                                            dot_first)
+                                            dot_first, self.distance, self.distance_preprocessing)
         return self
 
     def constrain(self, lbound, ubound):
@@ -374,12 +329,15 @@ class KSubsequenceNeighbours:
                 tc_idx = idx
 
         ts = self.time_series[lbound:ubound]
-        distances = self.distances[lbound:ubound-self.window_size+1, tc_idx * self.k_neighbours:(tc_idx + 1) * self.k_neighbours]
-        offsets = self.offsets[lbound:ubound-self.window_size+1, tc_idx * self.k_neighbours:(tc_idx + 1) * self.k_neighbours] - lbound
+        distances = self.distances[lbound:ubound - self.window_size + 1,
+                    tc_idx * self.k_neighbours:(tc_idx + 1) * self.k_neighbours]
+        offsets = self.offsets[lbound:ubound - self.window_size + 1,
+                  tc_idx * self.k_neighbours:(tc_idx + 1) * self.k_neighbours] - lbound
 
         knn = KSubsequenceNeighbours(
             window_size=self.window_size,
             k_neighbours=self.k_neighbours,
+            distance=self.distance_name
         )
 
         knn.time_series = ts

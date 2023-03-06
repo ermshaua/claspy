@@ -31,6 +31,10 @@ class BinaryClaSPSegmentation:
     k_neighbours : int, default=3
         The number of nearest neighbors to use in the ClaSP algorithm.
 
+    distance: str
+        The name of the distance function to be computed for determining the k-NNs. Available
+        options are "znormed_euclidean_distance" and "euclidean_distance".
+
     score : str, default="roc_auc"
         The name of the scoring metric to use in ClaSP. Available options are "roc_auc",
         "f1".
@@ -68,13 +72,15 @@ class BinaryClaSPSegmentation:
         Visualize the segmentation for the input time series.
     """
 
-    def __init__(self, n_segments="learn", n_estimators=10, window_size="suss", k_neighbours=3, score="roc_auc",
+    def __init__(self, n_segments="learn", n_estimators=10, window_size="suss", k_neighbours=3,
+                 distance="znormed_euclidean_distance", score="roc_auc",
                  early_stopping=True, validation="significance_test", threshold=1e-15, excl_radius=5,
                  random_state=2357):
         self.n_segments = n_segments
         self.n_estimators = n_estimators
         self.window_size = window_size
         self.k_neighbours = k_neighbours
+        self.distance = distance
         self.validation = validation
         self.threshold = threshold
         self.score = score
@@ -131,6 +137,7 @@ class BinaryClaSPSegmentation:
             n_estimators=self.n_estimators,
             window_size=self.window_size,
             k_neighbours=self.k_neighbours,
+            distance=self.distance,
             score=self.score,
             early_stopping=self.early_stopping,
             excl_radius=self.excl_radius,
@@ -210,6 +217,7 @@ class BinaryClaSPSegmentation:
                 n_estimators=self.n_estimators,
                 window_size=self.window_size,
                 k_neighbours=self.k_neighbours,
+                distance=self.distance,
                 score=self.score,
                 early_stopping=self.early_stopping,
                 excl_radius=self.excl_radius,
