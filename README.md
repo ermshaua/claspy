@@ -40,6 +40,7 @@ ClaSP accurately detects the number and location of changes in the motion sequen
 Checkout the following Jupyter notebooks that show applications of the ClaSPy package:
 
 - <a href="https://github.com/ermshaua/claspy/blob/main/claspy/notebooks/tssb_evaluation.ipynb">ClaSP evaluation on the "Time Series Segmentation Benchmark" (TSSB)</a>
+- <a href="https://github.com/ermshaua/claspy/blob/main/claspy/notebooks/clasp_configuration.ipynb">Hyper-parameter Tuning and Configuration of ClaSP</a>
 
 ## Citation
 
