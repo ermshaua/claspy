@@ -3,9 +3,10 @@
 
 __author__ = ["ermshaua"]
 
+from pathlib import Path
+
 import toml
 from setuptools import find_packages, setup
-from pathlib import Path
 
 pyproject = toml.load("pyproject.toml")
 

@@ -1,3 +1,4 @@
+import os
 import time
 import unittest
 from itertools import product
@@ -7,6 +8,8 @@ import numpy as np
 from claspy.data_loader import load_tssb_dataset
 from claspy.segmentation import BinaryClaSPSegmentation
 from claspy.tests.evaluation import covering
+
+ABS_PATH = os.path.dirname(os.path.abspath(__file__))
 
 # tssb data sets, with recurring segments
 REC_SEG_DS = [
@@ -50,14 +53,16 @@ class SegmentationTest(unittest.TestCase):
         window_sizes = (10, "suss", "fft", "acf")
         validations = (None, "significance_test", "score_threshold")
         thresholds = {"significance_test": 1e-15, "score_threshold": .75}
+        n_jobs = (1, -1)
 
         for idx, (dataset, window_size, cps, time_series) in list(tssb.iterrows()):
-            for n_seg, window_size, val in product(n_segments, window_sizes, validations):
+            for n_seg, window_size, val, n_job in product(n_segments, window_sizes, validations, n_jobs):
                 BinaryClaSPSegmentation(
                     n_segments=n_seg,
                     window_size=window_size,
                     validation=val,
-                    threshold=thresholds[val] if val is not None else None
+                    threshold=thresholds[val] if val is not None else None,
+                    n_jobs=n_job
                 ).fit(time_series)
 
     def test_readme(self):
@@ -66,8 +71,12 @@ class SegmentationTest(unittest.TestCase):
         clasp = BinaryClaSPSegmentation()
         change_points = clasp.fit_predict(time_series)
         assert np.array_equal(change_points, np.array([712, 1281, 1933, 2581]))
-        clasp.plot(gt_cps=true_cps, heading="Segmentation of different umpire cricket signals", ts_name="ACC",
-                   file_path="../../segmentation_example.png")
+        clasp.plot(
+            gt_cps=true_cps,
+            heading="Segmentation of different umpire cricket signals",
+            ts_name="ACC",
+            file_path=f"{ABS_PATH}/../../segmentation_example.png"
+        )
 
     def test_very_small_ts(self):
         time_series = np.zeros(0)

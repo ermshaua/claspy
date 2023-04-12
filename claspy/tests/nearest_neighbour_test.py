@@ -30,10 +30,11 @@ class KSubsequenceNeighboursTest(unittest.TestCase):
         window_sizes = (10, 50, 100)
         k_neighbours = (1, 3, 5)
         distances = ("znormed_euclidean_distance", "euclidean_distance")
+        n_jobs = (1, -1)
 
         for _, (dataset, window_size, cps, time_series) in tssb.iterrows():
-            for window_size, k, dist in product(window_sizes, k_neighbours, distances):
-                knn = KSubsequenceNeighbours(window_size=window_size)
+            for window_size, k, dist, n_job in product(window_sizes, k_neighbours, distances, n_jobs):
+                knn = KSubsequenceNeighbours(window_size=window_size, n_jobs=n_job)
                 knn.fit(time_series)
 
                 for arr in (knn.distances, knn.offsets):

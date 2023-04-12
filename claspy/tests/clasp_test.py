@@ -26,11 +26,12 @@ class ClaSPTest(unittest.TestCase):
 
         window_sizes = (10, 50, 100)
         scores = ("f1", "roc_auc")
+        n_jobs = (1, -1)
 
         for _, (dataset, window_size, cps, time_series) in tssb.iterrows():
-            for window_size, score in product(window_sizes, scores):
+            for window_size, score, n_job in product(window_sizes, scores, n_jobs):
                 if time_series.shape[0] < 2 * 5 * window_size: continue
-                clasp = ClaSP(window_size=window_size, score=score)
+                clasp = ClaSP(window_size=window_size, score=score, n_jobs=n_job)
                 clasp.fit(time_series)
                 assert clasp.profile.shape[0] == time_series.shape[0] - clasp.window_size + 1
 
@@ -55,14 +56,16 @@ class ClaSPEnsembleTest(unittest.TestCase):
         window_sizes = (10, 50, 100)
         scores = ("f1", "roc_auc")
         early_stopping = (True, False)
+        n_jobs = (1, -1)
 
         for _, (dataset, window_size, cps, time_series) in tssb.iterrows():
-            for window_size, score, stop in product(window_sizes, scores, early_stopping):
+            for window_size, score, stop, n_job in product(window_sizes, scores, early_stopping, n_jobs):
                 if time_series.shape[0] < 2 * 5 * window_size: continue
                 clasp = ClaSPEnsemble(
                     window_size=window_size,
                     score=score,
-                    early_stopping=stop
+                    early_stopping=stop,
+                    n_jobs=n_job
                 )
                 clasp.fit(time_series)
                 assert clasp.profile.shape[0] == time_series.shape[0] - clasp.window_size + 1

@@ -1,6 +1,9 @@
+import os
+
 import numpy as np
 import numpy.fft as fft
-from numba import njit
+from numba import njit, prange
+from numba.typed.typedlist import List
 
 from claspy.distance import map_distances
 from claspy.utils import check_input_time_series
@@ -121,7 +124,7 @@ def _argkmin(dist, k):
 
 
 @njit(fastmath=True, cache=True)
-def _knn(time_series, window_size, k_neighbours, tcs, dot_first, distance, distance_preprocessing):
+def _knn(time_series, start, end, window_size, k_neighbours, tcs, dot_first, dot_ref, distance, distance_preprocessing):
     """
     Perform k-nearest neighbors search between all pairs of subsequences of `time_series`
     of length `window_size`, based on their Euclidean distance after normalization by mean and
@@ -131,6 +134,10 @@ def _knn(time_series, window_size, k_neighbours, tcs, dot_first, distance, dista
     ----------
     time_series : ndarray of shape (n,)
         The time series to search over.
+    start : int
+        The first index to consider (inclusive).
+    end : int
+        The last index to consider (exclusive).
     window_size : int
         The length of the sliding window for comparison.
     k_neighbours : int
@@ -138,6 +145,8 @@ def _knn(time_series, window_size, k_neighbours, tcs, dot_first, distance, dista
     tcs : ndarray of shape (m, 2), where each row is (start, end)
         Temporal constraints to consider.
     dot_first : ndarray of shape (n - window_size + 1,)
+        Dot product of the sliding window at start with itself.
+    dot_ref : ndarray of shape (n - window_size + 1,)
         Dot product of the first sliding window with itself.
     distance: callable
         The distance function to be computed.
@@ -154,20 +163,20 @@ def _knn(time_series, window_size, k_neighbours, tcs, dot_first, distance, dista
     l = len(time_series) - window_size + 1
     exclusion_radius = np.int64(window_size / 2)
 
-    knns = np.zeros(shape=(l, len(tcs) * k_neighbours), dtype=np.int64)
-    dists = np.zeros(shape=(l, len(tcs) * k_neighbours), dtype=np.float64)
+    knns = np.zeros(shape=(end-start, len(tcs) * k_neighbours), dtype=np.int64)
+    dists = np.zeros(shape=(end-start, len(tcs) * k_neighbours), dtype=np.float64)
 
     dot_prev = None
     preprocessing = distance_preprocessing(time_series, window_size)
 
-    for order in range(0, l):
-        if order == 0:
+    for order in range(start, end):
+        if order == start:
             dot_rolled = dot_first
         else:
-            dot_rolled = np.roll(dot_prev, 1) + time_series[order + window_size - 1] * time_series[
-                                                                                       window_size - 1:l + window_size] - \
-                         time_series[order - 1] * np.roll(time_series[:l], 1)
-            dot_rolled[0] = dot_first[order]
+            dot_rolled = np.roll(dot_prev, 1) \
+                         + time_series[order + window_size - 1] * time_series[window_size - 1:l + window_size] \
+                         - time_series[order - 1] * np.roll(time_series[:l], 1)
+            dot_rolled[0] = dot_ref[order]
 
         dist = distance(order, dot_rolled, window_size, preprocessing)
 
@@ -181,13 +190,66 @@ def _knn(time_series, window_size, k_neighbours, tcs, dot_first, distance, dista
 
         for kdx, (lbound, ubound) in enumerate(tcs):
             if order < lbound or order >= ubound: continue
-
             tc_nn = lbound + _argkmin(dist[lbound:ubound - window_size + 1], k_neighbours)
 
-            knns[order, kdx * k_neighbours:(kdx + 1) * k_neighbours] = tc_nn
-            dists[order, kdx * k_neighbours:(kdx + 1) * k_neighbours] = dist[tc_nn]
+            knns[order-start, kdx * k_neighbours:(kdx + 1) * k_neighbours] = tc_nn
+            dists[order-start, kdx * k_neighbours:(kdx + 1) * k_neighbours] = dist[tc_nn]
 
         dot_prev = dot_rolled
+
+    return dists, knns
+
+
+@njit(fastmath=True, cache=True, parallel=True)
+def _parallel_knn(time_series, window_size, k_neighbours, pranges, tcs, dot_firsts, distance, distance_preprocessing):
+    """
+    Perform k-nearest neighbors search between all pairs of subsequences of `time_series`
+    of length `window_size` in parallel with n_jobs threads.
+
+    Parameters
+    ----------
+    time_series : ndarray of shape (n,)
+        The time series to search over.
+    window_size : int
+        The length of the sliding window for comparison.
+    k_neighbours : int
+        The number of nearest neighbors to return for each query.
+    pranges : ndarray of shape (m, 2), where each row is (start, end)
+        Ranges in which the k-NNs are calculated per thread. Infers the number of threads.
+    tcs : ndarray of shape (m, 2), where each row is (start, end)
+        Temporal constraints to consider.
+    dot_firsts : ndarray of shape (n - window_size + 1,)
+        Dot product of the first sliding window with itself.
+    distance: callable
+        The distance function to be computed.
+    distance_preprocessing: callable
+        The distance preprocessing function to be computed.
+
+    Returns
+    -------
+    dists : ndarray of shape (l, m * k_neighbours)
+        Array of distances between subsequences, sorted in increasing order.
+    knns : ndarray of shape (l, m * k_neighbours)
+        Array of indices of k nearest neighbors for each subsequence.
+    """
+    knns = np.zeros(shape=(len(time_series) - window_size + 1, len(tcs) * k_neighbours), dtype=np.int64)
+    dists = np.zeros(shape=(len(time_series) - window_size + 1, len(tcs) * k_neighbours), dtype=np.float64)
+
+    for idx in prange(len(pranges)):
+        start, end = pranges[idx]
+
+        dists[start:end, :], knns[start:end, :] = _knn(
+            time_series.copy(),
+            start,
+            end,
+            window_size,
+            k_neighbours,
+            tcs,
+            dot_firsts[idx],
+            dot_firsts[0],
+            distance,
+            distance_preprocessing
+        )
 
     return dists, knns
 
@@ -251,6 +313,8 @@ class KSubsequenceNeighbours:
     distance: str
         The name of the distance function to be computed. Available options are "znormed_euclidean_distance"
         and "euclidean_distance".
+    n_jobs : int, optional (default=1)
+        Amount of threads used in the k-nearest neighbour calculation.
 
     Methods
     -------
@@ -260,11 +324,12 @@ class KSubsequenceNeighbours:
         Return a constrained KSN model for the given temporal constraint.
     """
 
-    def __init__(self, window_size=10, k_neighbours=3, distance="znormed_euclidean_distance"):
+    def __init__(self, window_size=10, k_neighbours=3, distance="znormed_euclidean_distance", n_jobs=-1):
         self.window_size = window_size
         self.k_neighbours = k_neighbours
         self.distance_name = distance
         self.distance_preprocessing, self.distance = map_distances(distance)
+        self.n_jobs = os.cpu_count() if n_jobs < 1 else n_jobs
 
     def fit(self, time_series, temporal_constraints=None):
         """
@@ -287,6 +352,10 @@ class KSubsequenceNeighbours:
             A reference to the fitted model.
         """
         check_input_time_series(time_series)
+
+        if time_series.shape[0] < self.window_size * self.k_neighbours:
+            raise ValueError("Time series must at least have k_neighbours*window_size data points.")
+
         self.time_series = time_series
 
         if temporal_constraints is None:
@@ -294,9 +363,28 @@ class KSubsequenceNeighbours:
         else:
             self.temporal_constraints = temporal_constraints
 
-        dot_first = _sliding_dot(time_series[:self.window_size], time_series)
-        self.distances, self.offsets = _knn(time_series, self.window_size, self.k_neighbours, self.temporal_constraints,
-                                            dot_first, self.distance, self.distance_preprocessing)
+        pranges, dot_firsts = List(), List()
+        n_jobs = self.n_jobs
+
+        while time_series.shape[0] // n_jobs < self.window_size * self.k_neighbours and n_jobs != 1:
+            n_jobs -= 1
+
+        bin_size = time_series.shape[0] // n_jobs
+
+        for idx in range(n_jobs):
+            start = idx * bin_size
+
+            end = min((idx + 1) * bin_size, len(time_series)-self.window_size+1)
+            dot_first = _sliding_dot(time_series[start:start+self.window_size], time_series)
+
+            if end > start:
+                pranges.append((start, end))
+                dot_firsts.append(dot_first)
+
+        self.distances, self.offsets = _parallel_knn(time_series, self.window_size, self.k_neighbours,
+                                                     pranges, List(self.temporal_constraints), dot_firsts,
+                                                     self.distance, self.distance_preprocessing)
+
         return self
 
     def constrain(self, lbound, ubound):

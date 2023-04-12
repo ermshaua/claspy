@@ -1,3 +1,4 @@
+import os
 import warnings
 from queue import PriorityQueue
 
@@ -57,6 +58,9 @@ class BinaryClaSPSegmentation:
         The radius (in multiples of the window size) around each point in the time series to exclude
         when searching for change points.
 
+    n_jobs : int, optional (default=max_cores)
+        Amount of threads used in the ClaSP computation.
+
     random_state : int, default=2357
         Seed for the random number generator. Default is 2357.
 
@@ -75,7 +79,7 @@ class BinaryClaSPSegmentation:
     def __init__(self, n_segments="learn", n_estimators=10, window_size="suss", k_neighbours=3,
                  distance="znormed_euclidean_distance", score="roc_auc",
                  early_stopping=True, validation="significance_test", threshold=1e-15, excl_radius=5,
-                 random_state=2357):
+                 n_jobs=-1, random_state=2357):
         self.n_segments = n_segments
         self.n_estimators = n_estimators
         self.window_size = window_size
@@ -86,6 +90,7 @@ class BinaryClaSPSegmentation:
         self.score = score
         self.early_stopping = early_stopping
         self.excl_radius = excl_radius
+        self.n_jobs = os.cpu_count() if n_jobs < 1 else n_jobs
         self.random_state = random_state
         self.is_fitted = False
 
@@ -141,6 +146,7 @@ class BinaryClaSPSegmentation:
             score=self.score,
             early_stopping=self.early_stopping,
             excl_radius=self.excl_radius,
+            n_jobs=self.n_jobs,
             random_state=self.random_state
         ).fit(self.time_series[lbound:ubound], validation=self.validation, threshold=self.threshold)
 
@@ -221,6 +227,7 @@ class BinaryClaSPSegmentation:
                 score=self.score,
                 early_stopping=self.early_stopping,
                 excl_radius=self.excl_radius,
+                n_jobs=self.n_jobs,
                 random_state=self.random_state
             ).fit(time_series, validation=self.validation, threshold=self.threshold)
 

@@ -1,5 +1,8 @@
+import os
+
 import numpy as np
-from numba import njit
+from numba import njit, prange
+from numba.typed.typedlist import List
 from sklearn.exceptions import NotFittedError
 
 from claspy.nearest_neighbour import KSubsequenceNeighbours
@@ -10,7 +13,7 @@ from claspy.validation import map_validation_tests
 
 
 @njit(fastmath=True, cache=False)
-def _profile(offsets, window_size, score, min_seg_size):
+def _profile(offsets, start, end, window_size, score):
     """
     Computes the classification score profile given nearest neighbour offsets.
 
@@ -19,26 +22,61 @@ def _profile(offsets, window_size, score, min_seg_size):
     offsets : np.ndarray
         An array of shape (n_timepoints, k_neighbors) containing the offsets of the k nearest
         neighbors for each timepoint.
+    start : int
+        The first index to consider (inclusive).
+    end : int
+        The last index to consider (exclusive).
     window_size : int
         The size of the window used to calculate nearest neighbours.
     score : callable
         A callable that computes the score of a segmentation given the true and predicted labels.
         The callable must accept two arguments: y_true and y_pred, which are arrays of binary labels
         indicating whether each timepoint belongs to the first or second segment of the segmentation.
-    min_seg_size : int
-        The minimum length of a segment. Segments shorter than this will be ignored.
+
+    Returns
+    -------
+    np.ndarray
+        An array of shape (end-start,) containing the classification score profile.
+    """
+    profile = np.full(shape=end - start, fill_value=-np.inf, dtype=np.float64)
+
+    for split_idx in range(start, end):
+        y_true, y_pred = cross_val_labels(offsets, split_idx, window_size)
+        profile[split_idx - start] = score(y_true, y_pred)
+
+    return profile
+
+
+@njit(fastmath=True, cache=True, parallel=True)
+def _parallel_profile(offsets, pranges, window_size, score):
+    """
+    Computes the classification score profile given nearest neighbour offsets in parallel
+    with n_jobs threads.
+
+    Parameters
+    ----------
+    offsets : np.ndarray
+        An array of shape (n_timepoints, k_neighbors) containing the offsets of the k nearest
+        neighbors for each timepoint.
+    pranges : ndarray of shape (m, 2), where each row is (start, end)
+        Ranges in which the profile scpres are calculated per thread. Infers the number of threads.
+    window_size : int
+        The size of the window used to calculate nearest neighbours.
+    score : callable
+        A callable that computes the score of a segmentation given the true and predicted labels.
+        The callable must accept two arguments: y_true and y_pred, which are arrays of binary labels
+        indicating whether each timepoint belongs to the first or second segment of the segmentation.
 
     Returns
     -------
     np.ndarray
         An array of shape (n_timepoints,) containing the classification score profile.
     """
-    n_timepoints, _ = offsets.shape
-    profile = np.full(shape=n_timepoints, fill_value=-np.inf, dtype=np.float64)
+    profile = np.full(shape=offsets.shape[0], fill_value=-np.inf, dtype=np.float64)
 
-    for split_idx in range(min_seg_size, n_timepoints - min_seg_size):
-        y_true, y_pred = cross_val_labels(offsets, split_idx, window_size)
-        profile[split_idx] = score(y_true, y_pred)
+    for idx in prange(len(pranges)):
+        start, end = pranges[idx]
+        profile[start:end] = _profile(offsets, start, end, window_size, score)
 
     return profile
 
@@ -61,6 +99,8 @@ class ClaSP:
         Available options are "roc_auc", "f1", by default "roc_auc".
     excl_radius : int, optional
         The radius of the exclusion zone around the detected change point, by default 5*window_size.
+    n_jobs : int, optional (default=1)
+        Amount of threads used in the ClaSP computation.
 
     Methods
     -------
@@ -75,13 +115,14 @@ class ClaSP:
     """
 
     def __init__(self, window_size=10, k_neighbours=3, distance="znormed_euclidean_distance", score="roc_auc",
-                 excl_radius=5):
+                 excl_radius=5, n_jobs=-1):
         self.window_size = window_size
         self.k_neighbours = k_neighbours
         self.distance = distance
         self.score_name = score
         self.score = map_scores(score)
         self.excl_radius = excl_radius
+        self.n_jobs = os.cpu_count() if n_jobs < 1 else n_jobs
         self.is_fitted = False
 
         check_excl_radius(k_neighbours, excl_radius)
@@ -128,6 +169,7 @@ class ClaSP:
         """
         check_input_time_series(time_series)
         self.min_seg_size = self.window_size * self.excl_radius
+        self.lbound, self.ubound = 0, time_series.shape[0]
 
         if time_series.shape[0] < 2 * self.min_seg_size:
             raise ValueError("Time series must at least have 2*min_seg_size data points.")
@@ -138,12 +180,26 @@ class ClaSP:
             self.knn = KSubsequenceNeighbours(
                 window_size=self.window_size,
                 k_neighbours=self.k_neighbours,
-                distance=self.distance
+                distance=self.distance,
+                n_jobs=self.n_jobs
             ).fit(time_series)
         else:
             self.knn = knn
 
-        self.profile = _profile(self.knn.offsets, self.window_size, self.score, self.min_seg_size)
+        pranges = List()
+        n_jobs = self.n_jobs
+
+        while self.knn.offsets.shape[0] // n_jobs < self.min_seg_size and n_jobs != 1:
+            n_jobs -= 1
+
+        bin_size = self.knn.offsets.shape[0] // n_jobs
+
+        for idx in range(n_jobs):
+            start = max(idx * bin_size, self.min_seg_size)
+            end = min((idx + 1) * bin_size, self.knn.offsets.shape[0] - self.min_seg_size + self.window_size - 1)
+            if end > start: pranges.append((start, end))
+
+        self.profile = _parallel_profile(self.knn.offsets, pranges, self.window_size, self.score)
 
         self.is_fitted = True
         return self
@@ -248,6 +304,8 @@ class ClaSPEnsemble(ClaSP):
         the ClaSP models do not improve anymore. Default is True.
     excl_radius : int, optional
         The radius of the exclusion zone in the profile scoring. Default is 5*window_size.
+    n_jobs : int, optional (default=1)
+        Amount of threads used in the ClaSP computation.
     random_state : int or RandomState, optional
         Seed for the random number generator. Default is 2357.
 
@@ -262,10 +320,8 @@ class ClaSPEnsemble(ClaSP):
     """
 
     def __init__(self, n_estimators=10, window_size=10, k_neighbours=3, distance="znormed_euclidean_distance",
-                 score="roc_auc", early_stopping=True,
-                 excl_radius=5,
-                 random_state=2357):
-        super().__init__(window_size, k_neighbours, distance, score, excl_radius)
+                 score="roc_auc", early_stopping=True, excl_radius=5, n_jobs=-1, random_state=2357):
+        super().__init__(window_size, k_neighbours, distance, score, excl_radius, n_jobs)
         self.n_estimators = n_estimators
         self.early_stopping = early_stopping
         self.random_state = random_state
@@ -340,7 +396,8 @@ class ClaSPEnsemble(ClaSP):
             knn = KSubsequenceNeighbours(
                 window_size=self.window_size,
                 k_neighbours=self.k_neighbours,
-                distance=self.distance
+                distance=self.distance,
+                n_jobs=self.n_jobs
             ).fit(time_series, temporal_constraints=tcs)
 
         best_score, best_tc, best_clasp = -np.inf, None, None
@@ -350,7 +407,8 @@ class ClaSPEnsemble(ClaSP):
                 window_size=self.window_size,
                 k_neighbours=self.k_neighbours,
                 score=self.score_name,
-                excl_radius=self.excl_radius
+                excl_radius=self.excl_radius,
+                n_jobs=self.n_jobs
             ).fit(time_series[lbound:ubound], knn=knn.constrain(lbound, ubound))
 
             clasp.profile = (clasp.profile + (ubound - lbound) / time_series.shape[0]) / 2
@@ -366,10 +424,9 @@ class ClaSPEnsemble(ClaSP):
                 break
 
         self.knn = best_clasp.knn
+        self.lbound, self.ubound = best_tc
         self.profile = np.full(shape=time_series.shape[0] - self.window_size + 1, fill_value=-np.inf, dtype=np.float64)
-
-        lbound, ubound = best_tc
-        self.profile[lbound:ubound - self.window_size + 1] = best_clasp.profile
+        self.profile[self.lbound:self.ubound - self.window_size + 1] = best_clasp.profile
 
         self.is_fitted = True
         return self

@@ -29,7 +29,7 @@ def significance_test(clasp, change_point, threshold=1e-15):
     and the method returns True. Otherwise, the change point is considered not significant and the method returns False.
 
     """
-    _, y_pred = cross_val_labels(clasp.knn.offsets, change_point, clasp.window_size)
+    _, y_pred = cross_val_labels(clasp.knn.offsets, change_point-clasp.lbound, clasp.window_size)
     _, p = ranksums(y_pred[:change_point], y_pred[change_point:])
     return p <= threshold
 
