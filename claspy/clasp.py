@@ -196,7 +196,7 @@ class ClaSP:
 
         for idx in range(n_jobs):
             start = max(idx * bin_size, self.min_seg_size)
-            end = min((idx + 1) * bin_size, self.knn.offsets.shape[0] - self.min_seg_size + self.window_size - 1)
+            end = min((idx + 1) * bin_size, self.knn.offsets.shape[0] - self.min_seg_size + self.window_size)
             if end > start: pranges.append((start, end))
 
         self.profile = _parallel_profile(self.knn.offsets, pranges, self.window_size, self.score)
