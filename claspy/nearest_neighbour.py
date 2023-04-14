@@ -2,13 +2,14 @@ import os
 
 import numpy as np
 import numpy.fft as fft
-from numba import njit, prange
+from numba import njit, prange, objmode
 from numba.typed.typedlist import List
 
 from claspy.distance import map_distances
 from claspy.utils import check_input_time_series
 
 
+@njit(fastmath=True, cache=True)
 def _sliding_dot(query, time_series):
     """
     Calculate sliding dot product between a query and a time series.
@@ -47,18 +48,19 @@ def _sliding_dot(query, time_series):
 
     time_series_add = 0
     if n % 2 == 1:
-        time_series = np.insert(time_series, 0, 0)
+        time_series = np.concatenate((np.array([0]), time_series))
         time_series_add = 1
 
     q_add = 0
     if m % 2 == 1:
-        query = np.insert(query, 0, 0)
+        query = np.concatenate((np.array([0]), query))
         q_add = 1
 
     query = query[::-1]
-    query = np.pad(query, (0, n - m + time_series_add - q_add), "constant")
+    query = np.concatenate((query, np.zeros(n - m + time_series_add - q_add)))
     trim = m - 1 + time_series_add
-    dot_product = fft.irfft(fft.rfft(time_series) * fft.rfft(query))
+    with objmode(dot_product="float64[:]"):
+        dot_product = fft.irfft(fft.rfft(time_series) * fft.rfft(query))
     return dot_product[trim:]
 
 
@@ -201,7 +203,7 @@ def _knn(time_series, start, end, window_size, k_neighbours, tcs, dot_first, dot
 
 
 @njit(fastmath=True, cache=True, parallel=True)
-def _parallel_knn(time_series, window_size, k_neighbours, pranges, tcs, dot_firsts, distance, distance_preprocessing):
+def _parallel_knn(time_series, window_size, k_neighbours, pranges, tcs, distance, distance_preprocessing):
     """
     Perform k-nearest neighbors search between all pairs of subsequences of `time_series`
     of length `window_size` in parallel with n_jobs threads.
@@ -218,8 +220,6 @@ def _parallel_knn(time_series, window_size, k_neighbours, pranges, tcs, dot_firs
         Ranges in which the k-NNs are calculated per thread. Infers the number of threads.
     tcs : ndarray of shape (m, 2), where each row is (start, end)
         Temporal constraints to consider.
-    dot_firsts : ndarray of shape (n - window_size + 1,)
-        Dot product of the first sliding window with itself.
     distance: callable
         The distance function to be computed.
     distance_preprocessing: callable
@@ -232,14 +232,19 @@ def _parallel_knn(time_series, window_size, k_neighbours, pranges, tcs, dot_firs
     knns : ndarray of shape (l, m * k_neighbours)
         Array of indices of k nearest neighbors for each subsequence.
     """
+    dot_firsts = np.zeros(shape=(len(pranges), len(time_series) - window_size + 1), dtype=np.float64)
     knns = np.zeros(shape=(len(time_series) - window_size + 1, len(tcs) * k_neighbours), dtype=np.int64)
     dists = np.zeros(shape=(len(time_series) - window_size + 1, len(tcs) * k_neighbours), dtype=np.float64)
 
     for idx in prange(len(pranges)):
         start, end = pranges[idx]
+        dot_firsts[idx] = _sliding_dot(time_series[start:start + window_size], time_series)
+
+    for idx in prange(len(pranges)):
+        start, end = pranges[idx]
 
         dists[start:end, :], knns[start:end, :] = _knn(
-            time_series.copy(),
+            time_series,
             start,
             end,
             window_size,
@@ -363,7 +368,7 @@ class KSubsequenceNeighbours:
         else:
             self.temporal_constraints = temporal_constraints
 
-        pranges, dot_firsts = List(), List()
+        pranges = List()
         n_jobs = self.n_jobs
 
         while time_series.shape[0] // n_jobs < self.window_size * self.k_neighbours and n_jobs != 1:
@@ -373,16 +378,11 @@ class KSubsequenceNeighbours:
 
         for idx in range(n_jobs):
             start = idx * bin_size
-
             end = min((idx + 1) * bin_size, len(time_series)-self.window_size+1)
-            dot_first = _sliding_dot(time_series[start:start+self.window_size], time_series)
-
-            if end > start:
-                pranges.append((start, end))
-                dot_firsts.append(dot_first)
+            if end > start: pranges.append((start, end))
 
         self.distances, self.offsets = _parallel_knn(time_series, self.window_size, self.k_neighbours,
-                                                     pranges, List(self.temporal_constraints), dot_firsts,
+                                                     pranges, List(self.temporal_constraints),
                                                      self.distance, self.distance_preprocessing)
 
         return self
