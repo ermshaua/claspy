@@ -70,9 +70,14 @@ def suss(time_series, lbound=10, threshold=.89):
     """
     check_input_time_series(time_series)
 
-    if time_series.shape[0] <= lbound:
-        warnings.warn("Time series must at least have lbound much data points.")
+    if time_series.shape[0] < lbound:
+        warnings.warn(
+            f"Time series must at least have lbound much data points. Using window_size={time_series.shape[0]}.")
         return time_series.shape[0]
+
+    if time_series.min() == time_series.max():
+        warnings.warn(f"Constant time series. Using window_size={lbound}.")
+        return lbound
 
     time_series = (time_series - time_series.min()) / (time_series.max() - time_series.min())
 
@@ -84,6 +89,10 @@ def suss(time_series, lbound=10, threshold=.89):
 
     max_score = _suss_score(time_series, 1, stats)
     min_score = _suss_score(time_series, time_series.shape[0] - 1, stats)
+
+    if min_score == max_score:
+        warnings.warn(f"Found constant SuSS scores. Using window_size={lbound}.")
+        return lbound
 
     exp = 0
 
@@ -139,8 +148,9 @@ def dominant_fourier_frequency(time_series, lbound=10, ubound=1000):
     """
     check_input_time_series(time_series)
 
-    if time_series.shape[0] <= lbound:
-        warnings.warn("Time series must at least have lbound much data points.")
+    if time_series.shape[0] < 2 * lbound:
+        warnings.warn(
+            f"Time series must at least have 2*lbound much data points. Using window_size={time_series.shape[0]}.")
         return time_series.shape[0]
 
     fourier = np.fft.fft(time_series)
@@ -157,6 +167,10 @@ def dominant_fourier_frequency(time_series, lbound=10, ubound=1000):
             if window_size >= lbound and window_size < ubound:
                 window_sizes.append(window_size)
                 magnitudes.append(mag)
+
+    if len(magnitudes) == 0:
+        warnings.warn(f"Could not extract valid frequencies. Using window_size={lbound}.")
+        return lbound
 
     return window_sizes[np.argmax(magnitudes)]
 
@@ -184,8 +198,9 @@ def highest_autocorrelation(time_series, lbound=10, ubound=1000):
     """
     check_input_time_series(time_series)
 
-    if time_series.shape[0] <= lbound:
-        warnings.warn("Time series must at least have lbound much data points.")
+    if time_series.shape[0] < lbound:
+        warnings.warn(
+            f"Time series must at least have lbound much data points. Using window_size={time_series.shape[0]}.")
         return time_series.shape[0]
 
     acf_values = acf(time_series, fft=True, nlags=int(time_series.shape[0] / 2))
@@ -195,6 +210,7 @@ def highest_autocorrelation(time_series, lbound=10, ubound=1000):
     corrs = acf_values[peaks]
 
     if peaks.shape[0] == 0:
+        warnings.warn(f"Could not find any autocorrelation peaks. Using window_size={lbound}.")
         return lbound
 
     return peaks[np.argmax(corrs)]
