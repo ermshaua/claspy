@@ -1,7 +1,7 @@
 import os
 
 import numpy as np
-from numba import njit, prange
+from numba import njit, prange, get_num_threads, set_num_threads
 from numba.typed.typedlist import List
 from sklearn.exceptions import NotFittedError
 
@@ -199,8 +199,12 @@ class ClaSP:
             end = min((idx + 1) * bin_size, self.knn.offsets.shape[0] - self.min_seg_size + self.window_size)
             if end > start: pranges.append((start, end))
 
+        n_threads = get_num_threads()
+        set_num_threads(n_jobs)
+
         self.profile = _parallel_profile(self.knn.offsets, pranges, self.window_size, self.score)
 
+        set_num_threads(n_threads)
         self.is_fitted = True
         return self
 

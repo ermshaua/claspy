@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 import numpy.fft as fft
-from numba import njit, prange, objmode
+from numba import njit, prange, objmode, get_num_threads, set_num_threads
 from numba.typed.typedlist import List
 
 from claspy.distance import map_distances
@@ -364,7 +364,7 @@ class KSubsequenceNeighbours:
         self.time_series = time_series
 
         if temporal_constraints is None:
-            self.temporal_constraints = np.asarray([(0, time_series.shape[0])], dtype=np.int64)
+            self.temporal_constraints = np.asarray([(0, time_series.shape[0])], dtype=int)
         else:
             self.temporal_constraints = temporal_constraints
 
@@ -381,10 +381,14 @@ class KSubsequenceNeighbours:
             end = min((idx + 1) * bin_size, len(time_series)-self.window_size+1)
             if end > start: pranges.append((start, end))
 
+        n_threads = get_num_threads()
+        set_num_threads(n_jobs)
+
         self.distances, self.offsets = _parallel_knn(time_series, self.window_size, self.k_neighbours,
                                                      pranges, List(self.temporal_constraints),
                                                      self.distance, self.distance_preprocessing)
 
+        set_num_threads(n_threads)
         return self
 
     def constrain(self, lbound, ubound):
@@ -429,6 +433,6 @@ class KSubsequenceNeighbours:
         )
 
         knn.time_series = ts
-        knn.temporal_constraints = np.asarray([(0, ts.shape[0])], dtype=np.int64)
+        knn.temporal_constraints = np.asarray([(0, ts.shape[0])], dtype=int)
         knn.distances, knn.offsets = distances, offsets
         return knn
