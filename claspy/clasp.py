@@ -427,10 +427,15 @@ class ClaSPEnsemble(ClaSP):
             if self.early_stopping is True and best_clasp.split(validation=validation, threshold=threshold) is not None:
                 break
 
-        self.knn = best_clasp.knn
-        self.lbound, self.ubound = best_tc
         self.profile = np.full(shape=time_series.shape[0] - self.window_size + 1, fill_value=-np.inf, dtype=np.float64)
-        self.profile[self.lbound:self.ubound - self.window_size + 1] = best_clasp.profile
+
+        if best_clasp is not None:
+            self.knn = best_clasp.knn
+            self.lbound, self.ubound = best_tc
+            self.profile[self.lbound:self.ubound - self.window_size + 1] = best_clasp.profile
+        else:
+            self.knn = knn
+            self.lbound, self.ubound = 0, self.time_series.shape[0]
 
         self.is_fitted = True
         return self
