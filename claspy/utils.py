@@ -1,3 +1,6 @@
+import os
+import shutil
+
 import numpy as np
 
 
@@ -52,3 +55,44 @@ def check_excl_radius(k_neighbours, excl_radius):
     """
     if excl_radius <= k_neighbours:
         raise ValueError("Exclusion radius must be larger than the number of neighbours used.")
+
+
+def numba_cache_safe(func, *args, **kwargs):
+    """
+    Execute a function safely, handling potential issues with numba's cache. If a
+    ReferenceError is caught, indicating a potential issue with the cache, it
+    is cleared and the function is attempted to be executed again.
+
+    Parameters
+    ----------
+    func : callable
+        The function to be executed. This function can be any callable but is
+        intended for use with functions that use Numba's JIT compilation.
+    *args : tuple
+        Positional arguments to be passed to the function.
+    **kwargs : dict
+        Keyword arguments to be passed to the function.
+
+    Returns
+    -------
+    Any
+        The return value of the `func` function.
+
+    Raises
+    ------
+    ReferenceError
+        If the ReferenceError persists even after clearing the Numba cache.
+    """
+    try:
+        return func(*args, **kwargs)
+    except ReferenceError as e:
+        pycache_path = os.path.join(os.path.dirname(__file__), "__pycache__")
+
+        # delete cache and try again
+        if os.path.exists(pycache_path):
+            shutil.rmtree(pycache_path)
+            return func(*args, **kwargs)
+
+        # other issue
+        raise e
+

@@ -6,7 +6,7 @@ from numba import njit, prange, objmode, get_num_threads, set_num_threads
 from numba.typed.typedlist import List
 
 from claspy.distance import map_distances
-from claspy.utils import check_input_time_series
+from claspy.utils import check_input_time_series, numba_cache_safe
 
 
 @njit(fastmath=True, cache=True)
@@ -384,7 +384,7 @@ class KSubsequenceNeighbours:
         n_threads = get_num_threads()
         set_num_threads(n_jobs)
 
-        self.distances, self.offsets = _parallel_knn(time_series, self.window_size, self.k_neighbours,
+        self.distances, self.offsets = numba_cache_safe(_parallel_knn, time_series, self.window_size, self.k_neighbours,
                                                      pranges, List(self.temporal_constraints),
                                                      self.distance, self.distance_preprocessing)
 

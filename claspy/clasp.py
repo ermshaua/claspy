@@ -8,7 +8,7 @@ from sklearn.exceptions import NotFittedError
 from claspy.nearest_neighbour import KSubsequenceNeighbours
 from claspy.nearest_neighbour import cross_val_labels
 from claspy.scoring import map_scores
-from claspy.utils import check_input_time_series, check_excl_radius
+from claspy.utils import check_input_time_series, check_excl_radius, numba_cache_safe
 from claspy.validation import map_validation_tests
 
 
@@ -202,7 +202,7 @@ class ClaSP:
         n_threads = get_num_threads()
         set_num_threads(n_jobs)
 
-        self.profile = _parallel_profile(self.knn.offsets, pranges, self.window_size, self.score)
+        self.profile = numba_cache_safe(_parallel_profile, self.knn.offsets, pranges, self.window_size, self.score)
 
         set_num_threads(n_threads)
         self.is_fitted = True
