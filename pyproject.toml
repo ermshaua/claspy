@@ -1,7 +1,7 @@
 [project]
 name = "claspy"
 
-version = "0.2.1"
+version = "0.2.2"
 
 description = ""
 readme = "README.md"
@@ -29,9 +29,10 @@ classifiers = [
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10"
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11"
 ]
-requires-python = ">=3.7,<3.11"
+requires-python = ">=3.7,<3.12"
 dependencies = [
     "numpy>=1.21.0,<1.25",
     "numba>=0.53",
