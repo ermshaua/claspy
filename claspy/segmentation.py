@@ -94,6 +94,8 @@ class BinaryClaSPSegmentation:
         self.random_state = random_state
         self.is_fitted = False
 
+
+
         check_excl_radius(k_neighbours, excl_radius)
 
     def _cp_is_valid(self, candidate, change_points):
@@ -230,6 +232,9 @@ class BinaryClaSPSegmentation:
                 n_jobs=self.n_jobs,
                 random_state=self.random_state
             ).fit(time_series, validation=self.validation, threshold=self.threshold)
+
+            self.detected_change_points.append(clasp.detected_change_points)
+            self.detection_p_value.append(clasp.detection_p_value)
 
             cp = clasp.split(validation=self.validation, threshold=self.threshold)
 

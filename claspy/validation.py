@@ -3,7 +3,7 @@ from scipy.stats import ranksums
 from claspy.nearest_neighbour import cross_val_labels
 
 
-def significance_test(clasp, change_point, threshold=1e-15):
+def significance_test(clasp, change_point):
     """
     Perform a significance test on a candidate change point using the provided ClaSP.
 
@@ -31,10 +31,10 @@ def significance_test(clasp, change_point, threshold=1e-15):
     """
     _, y_pred = cross_val_labels(clasp.knn.offsets, change_point-clasp.lbound, clasp.window_size)
     _, p = ranksums(y_pred[:change_point], y_pred[change_point:])
-    return p <= threshold
+    return p
 
 
-def score_threshold(clasp, change_point, threshold=0.75):
+def score_threshold(clasp, change_point):
     """
     Returns whether the ClaSP score at the given change point exceeds the specified threshold.
 
@@ -53,7 +53,7 @@ def score_threshold(clasp, change_point, threshold=0.75):
         True if the ClaSP score at the given change point is greater than or equal to the specified
         threshold, False otherwise.
     """
-    return clasp.profile[change_point] >= threshold
+    return clasp.profile[change_point]
 
 
 _VALIDATION_MAPPING = {

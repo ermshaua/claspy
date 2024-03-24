@@ -125,6 +125,9 @@ class ClaSP:
         self.n_jobs = os.cpu_count() if n_jobs < 1 else n_jobs
         self.is_fitted = False
 
+        self.detected_change_points = []
+        self.detection_p_value = []
+
         check_excl_radius(k_neighbours, excl_radius)
 
     def _check_is_fitted(self):
@@ -276,8 +279,11 @@ class ClaSP:
         cp = np.argmax(self.profile)
 
         if validation is not None:
+            self.detected_change_points.append(cp)
             validation_test = map_validation_tests(validation)
-            if not validation_test(self, cp, threshold): return None
+            p_value = validation_test(self, cp, threshold)
+            self.detection_p_value.append(p_value)
+            if p_value > threshold: return None
 
         if sparse is True:
             return cp
@@ -426,6 +432,9 @@ class ClaSPEnsemble(ClaSP):
 
             if self.early_stopping is True and best_clasp.split(validation=validation, threshold=threshold) is not None:
                 break
+
+            self.detected_change_points.append(clasp.detected_change_points)
+            self.detection_p_value.append(clasp.detection_p_value)
 
         self.profile = np.full(shape=time_series.shape[0] - self.window_size + 1, fill_value=-np.inf, dtype=np.float64)
 
