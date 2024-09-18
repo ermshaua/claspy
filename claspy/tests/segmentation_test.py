@@ -51,7 +51,7 @@ class SegmentationTest(unittest.TestCase):
 
         n_segments = (1, "learn")
         window_sizes = (10, "suss", "fft", "acf")
-        distances = ("znormed_euclidean_distance", "euclidean_distance", "cid")
+        distances = ("znormed_euclidean_distance", "euclidean_distance", "cinvariant_euclidean_distance")
         validations = (None, "significance_test", "score_threshold")
         thresholds = {"significance_test": 1e-15, "score_threshold": .75}
         n_jobs = (1, -1)

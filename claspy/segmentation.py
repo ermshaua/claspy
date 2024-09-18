@@ -34,7 +34,8 @@ class BinaryClaSPSegmentation:
 
     distance: str
         The name of the distance function to be computed for determining the k-NNs. Available
-        options are "znormed_euclidean_distance" and "euclidean_distance".
+        options are "znormed_euclidean_distance", "cinvariant_euclidean_distance", and
+        "euclidean_distance".
 
     score : str, default="roc_auc"
         The name of the scoring metric to use in ClaSP. Available options are "roc_auc",

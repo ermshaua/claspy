@@ -316,8 +316,8 @@ class KSubsequenceNeighbours:
     k_neighbours : int, optional (default=3)
         Number of nearest neighbors to return for each time series subsequence.
     distance: str
-        The name of the distance function to be computed. Available options are "znormed_euclidean_distance"
-        and "euclidean_distance".
+        The name of the distance function to be computed. Available options are "znormed_euclidean_distance",
+        "cinvariant_euclidean_distance", and "euclidean_distance".
     n_jobs : int, optional (default=1)
         Amount of threads used in the k-nearest neighbour calculation.
 
