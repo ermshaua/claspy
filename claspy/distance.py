@@ -1,5 +1,5 @@
 import numpy as np
-from numba import njit
+from numba import njit, objmode
 
 
 @njit(fastmath=True, cache=True)
@@ -38,7 +38,7 @@ def sliding_mean_std(time_series, window_size):
     --------
     >>> time_series = [1, 2, 3, 4, 5, 6, 7]
     >>> window_size = 3
-    >>> movmean, movstd = _sliding_mean_std(time_series, window_size)
+    >>> movmean, movstd = sliding_mean_std(time_series, window_size)
     """
     s = np.concatenate((np.zeros(1, dtype=np.float64), np.cumsum(time_series)))
     sSq = np.concatenate((np.zeros(1, dtype=np.float64), np.cumsum(time_series ** 2)))
@@ -137,9 +137,33 @@ def euclidean_distance(idx, dot, window_size, csumsq, squared=True):
     return np.sqrt(dist)
 
 
+@njit(fastmath=True, cache=True)
+def sliding_csum_dcsum(time_series, window_size):
+    means, stds = sliding_mean_std(time_series, window_size)
+    csumsq = np.concatenate((np.zeros(1, dtype=np.float64), np.cumsum(time_series ** 2)))
+    dcsumsq = np.concatenate((np.zeros(2, dtype=np.float64), np.cumsum((time_series[1:] - time_series[:-1]) ** 2)))
+    return [csumsq[window_size:] - csumsq[:-window_size], dcsumsq[window_size:] - dcsumsq[:-window_size] + 1e-5, means, stds]
+
+
+@njit(fastmath=True, cache=True)
+def cid(idx, dot, window_size, preprocessing, squared=True):
+    csumsq, ce, means, stds = preprocessing
+
+    ed = -2 * dot + csumsq + csumsq[idx]
+    # zed = 2 * window_size * (1 - (dot - window_size * means * means[idx]) / (window_size * stds * stds[idx]))
+    curr_ce = np.repeat(ce[idx], ce.shape[0])
+
+    with objmode(cf="float64[:]"):
+        cf = (np.max(np.dstack((ce, curr_ce)), axis=2) / np.min(np.dstack((ce, curr_ce)), axis=2))[0]
+
+    if squared is True: return ed * cf
+    return np.sqrt(ed) * np.sqrt(cf)
+
+
 _DISTANCE_MAPPING = {
     "znormed_euclidean_distance": (sliding_mean_std, znormed_euclidean_distance),
     "euclidean_distance": (sliding_csum, euclidean_distance),
+    "cid" : (sliding_csum_dcsum, cid)
 }
 
 

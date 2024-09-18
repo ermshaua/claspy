@@ -51,15 +51,17 @@ class SegmentationTest(unittest.TestCase):
 
         n_segments = (1, "learn")
         window_sizes = (10, "suss", "fft", "acf")
+        distances = ("znormed_euclidean_distance", "euclidean_distance", "cid")
         validations = (None, "significance_test", "score_threshold")
         thresholds = {"significance_test": 1e-15, "score_threshold": .75}
         n_jobs = (1, -1)
 
         for idx, (dataset, window_size, cps, time_series) in list(tssb.iterrows()):
-            for n_seg, window_size, val, n_job in product(n_segments, window_sizes, validations, n_jobs):
+            for n_seg, window_size, distance, val, n_job in product(n_segments, window_sizes, distances, validations, n_jobs):
                 BinaryClaSPSegmentation(
                     n_segments=n_seg,
                     window_size=window_size,
+                    distance=distance,
                     validation=val,
                     threshold=thresholds[val] if val is not None else None,
                     n_jobs=n_job
