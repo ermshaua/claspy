@@ -17,7 +17,15 @@ TSSB_URL = (
     "time-series-segmentation-benchmark/main/tssb/datasets/"
 )
 
+HAS_URL = (
+    "https://raw.githubusercontent.com/patrickzib"
+    "/human_activity_segmentation_challenge/main/datasets/has2023_master.csv"
+    ".zip"
+)
+
 TSSB_DIRNAME = "data/tssb"
+HAS_DIRNAME = "data/has"
+
 MODULE = os.path.dirname(__file__)
 
 
@@ -97,3 +105,90 @@ def load_tssb_dataset(names=None, extract_path=None):
     return pd.DataFrame.from_records(
         tssb, columns=["dataset", "window_size", "cps", "time_series"]
     )
+
+
+def load_has_dataset(extract_path=None):
+    # Allow user to have non standard extract path
+    if extract_path is not None:
+        local_module = os.path.dirname(extract_path)
+        local_dirname = extract_path
+    else:
+        local_module = MODULE
+        local_dirname = HAS_DIRNAME
+
+    if not os.path.exists(os.path.join(local_module, local_dirname)):
+        os.makedirs(os.path.join(local_module, local_dirname))
+
+    has_file_path = os.path.join(local_module, local_dirname, "has.csv.zip")
+
+    if not os.path.exists(has_file_path):
+        urlretrieve(HAS_URL, has_file_path)
+
+    # converters to correctly load benchmark
+    np_cols = [
+        "change_points",
+        "activities",
+        "x-acc",
+        "y-acc",
+        "z-acc",
+        "x-gyro",
+        "y-gyro",
+        "z-gyro",
+        "x-mag",
+        "y-mag",
+        "z-mag",
+        "lat",
+        "lon",
+        "speed",
+    ]
+
+    converters = {
+        col: lambda val: np.array([]) if len(val) == 0 else np.array(eval(val))
+        for col in np_cols
+    }
+
+    df = pd.read_csv(has_file_path, converters=converters)
+    has = []
+
+    for _, row in df.iterrows():
+        dataset = (
+            f"{row.group}_subject{row.subject}_routine{row.routine} "
+            f"(id{row.ts_challenge_id})"
+        )
+
+        if row.group == "indoor":
+            ts = np.hstack(
+                (
+                    row["x-acc"].reshape(-1, 1),
+                    row["y-acc"].reshape(-1, 1),
+                    row["z-acc"].reshape(-1, 1),
+                    row["x-gyro"].reshape(-1, 1),
+                    row["y-gyro"].reshape(-1, 1),
+                    row["z-gyro"].reshape(-1, 1),
+                    row["x-mag"].reshape(-1, 1),
+                    row["y-mag"].reshape(-1, 1),
+                    row["z-mag"].reshape(-1, 1),
+                )
+            )
+        elif row.group == "outdoor":
+            ts = np.hstack(
+                (
+                    row["x-acc"].reshape(-1, 1),
+                    row["y-acc"].reshape(-1, 1),
+                    row["z-acc"].reshape(-1, 1),
+                    row["x-mag"].reshape(-1, 1),
+                    row["y-mag"].reshape(-1, 1),
+                    row["z-mag"].reshape(-1, 1),
+                    row["lat"].reshape(-1, 1),
+                    row["lon"].reshape(-1, 1),
+                    row["speed"].reshape(-1, 1),
+                )
+            )
+
+        has.append((dataset, 50, row.change_points, row.activities, ts))
+
+    return pd.DataFrame.from_records(
+        has, columns=["dataset", "window_size", "cps", "labels", "time_series"]
+    )
+
+
