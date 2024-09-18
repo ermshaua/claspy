@@ -93,7 +93,7 @@ class ClaSP:
         The number of nearest neighbors to consider when computing distances and offsets, by default 3.
     distance: str
         The name of the distance function to be computed for determining the k-NNs. Available options are
-        "znormed_euclidean_distance" and "euclidean_distance".
+        "znormed_euclidean_distance", "cinvariant_euclidean_distance", and "euclidean_distance".
     score : str or callable, optional
         The name of the classification score to use.
         Available options are "roc_auc", "f1", by default "roc_auc".
@@ -167,7 +167,7 @@ class ClaSP:
         ValueError
             If the input time series has less than 2*min_seg_size data points.
         """
-        check_input_time_series(time_series)
+        time_series = check_input_time_series(time_series)
         self.min_seg_size = self.window_size * self.excl_radius
         self.lbound, self.ubound = 0, time_series.shape[0]
 
@@ -227,7 +227,7 @@ class ClaSP:
 
         Parameters
         ----------
-        time_series : np.ndarray, shape (n_timepoints,)
+        time_series : array-like of shape (n_samples,) or (n_samples, d_dimensions)
             The input time series to be segmented.
         knn : KSubsequenceNeighbours, optional
             Pre-computed KSubsequenceNeighbours object to use for fitting the model.
@@ -299,7 +299,7 @@ class ClaSPEnsemble(ClaSP):
         The number of nearest neighbours to consider in the k-subsequence method. Default is 3.
     distance: str
         The name of the distance function to be computed for determining the k-NNs. Available options are
-        "znormed_euclidean_distance" and "euclidean_distance".
+        "znormed_euclidean_distance", "cinvariant_euclidean_distance", and "euclidean_distance".
     score : str or callable, optional
         The scoring method to use in the profile scoring. Must be a string ("f1" "roc_auc",).
         Default is "roc_auc".
@@ -362,7 +362,7 @@ class ClaSPEnsemble(ClaSP):
         Parameters
         ----------
         time_series : np.ndarray
-            The input time series of shape (n_samples,).
+            The input time series of shape (n_samples,) or (n_samples, d_dimensions).
         knn : Optional[KSubsequenceNeighbours], default=None
             The precomputed KSubsequenceNeighbours object to use. If None, it will be computed
             using `KSubsequenceNeighbours` with the `window_size` and `k_neighbours` parameters
@@ -387,7 +387,7 @@ class ClaSPEnsemble(ClaSP):
         ValueError
             If the input time series has less than 2 times the minimum segment size.
         """
-        check_input_time_series(time_series)
+        time_series = check_input_time_series(time_series)
         self.min_seg_size = self.window_size * self.excl_radius
 
         if time_series.shape[0] < 2 * self.min_seg_size:

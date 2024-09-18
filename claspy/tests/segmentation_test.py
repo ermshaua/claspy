@@ -5,7 +5,7 @@ from itertools import product
 
 import numpy as np
 
-from claspy.data_loader import load_tssb_dataset
+from claspy.data_loader import load_tssb_dataset, load_has_dataset
 from claspy.segmentation import BinaryClaSPSegmentation
 from claspy.tests.evaluation import covering
 
@@ -42,7 +42,23 @@ class SegmentationTest(unittest.TestCase):
         runtime = np.round(time.process_time() - runtime, 3)
         score = np.mean(scores)
 
-        assert score >= .85, f"Covering is only: {np.mean(scores)}"
+        assert score >= .85, f"Covering is only: {score}"
+
+    def test_has_benchmark_accuracy(self):
+        has = load_has_dataset()
+        scores = []
+        runtime = time.process_time()
+
+        for idx, (dataset, window_size, cps, _, time_series) in list(has.iterrows()):
+            clasp = BinaryClaSPSegmentation()
+            found_cps = clasp.fit_predict(time_series)
+            score = np.round(covering({0: cps}, found_cps, time_series.shape[0]), 2)
+            scores.append(score)
+
+        runtime = np.round(time.process_time() - runtime, 3)
+        score = np.mean(scores)
+
+        assert score >= .74, f"Covering is only: {score}"
 
     def test_param_configs(self):
         tssb = load_tssb_dataset()
@@ -53,7 +69,6 @@ class SegmentationTest(unittest.TestCase):
         window_sizes = (10, "suss", "fft", "acf")
         distances = ("znormed_euclidean_distance", "euclidean_distance", "cinvariant_euclidean_distance")
         validations = (None, "significance_test", "score_threshold")
-        thresholds = {"significance_test": 1e-15, "score_threshold": .75}
         n_jobs = (1, -1)
 
         for idx, (dataset, window_size, cps, time_series) in list(tssb.iterrows()):
@@ -63,7 +78,6 @@ class SegmentationTest(unittest.TestCase):
                     window_size=window_size,
                     distance=distance,
                     validation=val,
-                    threshold=thresholds[val] if val is not None else None,
                     n_jobs=n_job
                 ).fit(time_series)
 
@@ -78,6 +92,19 @@ class SegmentationTest(unittest.TestCase):
             heading="Segmentation of different umpire cricket signals",
             ts_name="ACC",
             file_path=f"{ABS_PATH}/../../segmentation_example.png"
+        )
+
+        dataset, window_size, true_cps, labels, time_series = load_has_dataset().iloc[107, :]
+
+        clasp = BinaryClaSPSegmentation()
+        change_points = clasp.fit_predict(time_series)
+        assert np.array_equal(change_points, np.array([781, 8212, 9287, 14468]))
+        clasp.plot(
+            gt_cps=true_cps,
+            heading=f"Segmentation of activity routine: {', '.join(labels)}",
+            ts_name="ACC",
+            font_size=18,
+            file_path=f"{ABS_PATH}/../../multivariate_segmentation_example.png"
         )
 
     def test_very_small_ts(self):

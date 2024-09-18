@@ -134,7 +134,7 @@ def _knn(time_series, start, end, window_size, k_neighbours, tcs, dot_first, dot
 
     Parameters
     ----------
-    time_series : ndarray of shape (n,)
+    time_series : ndarray of shape (n,d)
         The time series to search over.
     start : int
         The first index to consider (inclusive).
@@ -169,26 +169,38 @@ def _knn(time_series, start, end, window_size, k_neighbours, tcs, dot_first, dot
     dists = np.zeros(shape=(end-start, len(tcs) * k_neighbours), dtype=np.float64)
 
     dot_prev = None
-    preprocessing = distance_preprocessing(time_series, window_size)
+    dot_rolled = dot_first.copy()
+    preprocessings = []
+
+    for dim in range(time_series.shape[1]):
+        preprocessings.append(distance_preprocessing(time_series[:,dim], window_size))
 
     for order in range(start, end):
-        if order == start:
-            dot_rolled = dot_first
-        else:
-            dot_rolled = np.roll(dot_prev, 1) \
-                         + time_series[order + window_size - 1] * time_series[window_size - 1:l + window_size] \
-                         - time_series[order - 1] * np.roll(time_series[:l], 1)
-            dot_rolled[0] = dot_ref[order]
+        cdists = np.zeros(shape=(time_series.shape[1], l), dtype=np.float64)
 
-        dist = distance(order, dot_rolled, window_size, preprocessing)
+        for dim in range(time_series.shape[1]):
+            if order > start:
+                dot_rolled[dim] = np.roll(dot_prev[dim], 1) \
+                                  + time_series[order + window_size - 1, dim] * time_series[
+                                                                                window_size - 1:l + window_size, dim] \
+                                  - time_series[order - 1, dim] * np.roll(time_series[:l, dim], 1)
+                dot_rolled[dim, 0] = dot_ref[dim, order]
 
-        # self-join: exclusion zone
-        trivialMatchRange = (
-            int(max(0, order - np.round(exclusion_radius, 0))),
-            int(min(order + np.round(exclusion_radius + 1, 0), l))
-        )
+            cdists[dim] = distance(order, dot_rolled[dim], window_size, preprocessings[dim])
 
-        dist[trivialMatchRange[0]:trivialMatchRange[1]] = np.max(dist)
+            # self-join: exclusion zone
+            trivialMatchRange = (
+                int(max(0, order - np.round(exclusion_radius, 0))),
+                int(min(order + np.round(exclusion_radius + 1, 0), l))
+            )
+
+            cdists[dim][trivialMatchRange[0]:trivialMatchRange[1]] = np.max(cdists[dim])
+
+        # normalize dists
+        for dim in range(cdists.shape[0]):
+            cdists[dim] = (cdists[dim] - cdists[dim].mean()) / cdists[dim].std()
+
+        dist = cdists.sum(axis=0) / time_series.shape[1]
 
         for kdx, (lbound, ubound) in enumerate(tcs):
             if order < lbound or order >= ubound: continue
@@ -210,7 +222,7 @@ def _parallel_knn(time_series, window_size, k_neighbours, pranges, tcs, distance
 
     Parameters
     ----------
-    time_series : ndarray of shape (n,)
+    time_series : ndarray of shape (n,d)
         The time series to search over.
     window_size : int
         The length of the sliding window for comparison.
@@ -232,13 +244,14 @@ def _parallel_knn(time_series, window_size, k_neighbours, pranges, tcs, distance
     knns : ndarray of shape (l, m * k_neighbours)
         Array of indices of k nearest neighbors for each subsequence.
     """
-    dot_firsts = np.zeros(shape=(len(pranges), len(time_series) - window_size + 1), dtype=np.float64)
-    knns = np.zeros(shape=(len(time_series) - window_size + 1, len(tcs) * k_neighbours), dtype=np.int64)
-    dists = np.zeros(shape=(len(time_series) - window_size + 1, len(tcs) * k_neighbours), dtype=np.float64)
+    dot_firsts = np.zeros(shape=(len(pranges), time_series.shape[1], time_series.shape[0] - window_size + 1), dtype=np.float64)
+    knns = np.zeros(shape=(time_series.shape[0] - window_size + 1, len(tcs) * k_neighbours), dtype=np.int64)
+    dists = np.zeros(shape=(time_series.shape[0] - window_size + 1, len(tcs) * k_neighbours), dtype=np.float64)
 
     for idx in prange(len(pranges)):
         start, end = pranges[idx]
-        dot_firsts[idx] = _sliding_dot(time_series[start:start + window_size], time_series)
+        for dim in range(time_series.shape[1]):
+            dot_firsts[idx,dim] = _sliding_dot(time_series[start:start + window_size, dim], time_series[:, dim])
 
     for idx in prange(len(pranges)):
         start, end = pranges[idx]
@@ -342,7 +355,7 @@ class KSubsequenceNeighbours:
 
         Parameters
         ----------
-        time_series : array-like
+        time_series : array-like of shape (n_samples,) or (n_samples, d_dimensions)
             The time series to fit the model to.
 
         temporal_constraints : array-like of shape (n, 2), optional (default=None)
@@ -356,7 +369,7 @@ class KSubsequenceNeighbours:
         self : KSubsequenceNeighbours
             A reference to the fitted model.
         """
-        check_input_time_series(time_series)
+        time_series = check_input_time_series(time_series)
 
         if time_series.shape[0] < self.window_size * self.k_neighbours:
             raise ValueError("Time series must at least have k_neighbours*window_size data points.")

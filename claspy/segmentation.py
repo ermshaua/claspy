@@ -49,11 +49,11 @@ class BinaryClaSPSegmentation:
         The validation method to use for determining the significance of the change point.
         The available methods are "significance_test" and "score_threshold". Default is
         "significance_test".
-    threshold : float, optional
+    threshold : str or float, optional
         The threshold value to use for the validation test. If the validation method is
         "significance_test", this value represents the p-value threshold for rejecting the
         null hypothesis. If the validation method is "score_threshold", this value represents
-        the threshold score for accepting the change point. Default is 1e-15.
+        the threshold score for accepting the change point.
 
     excl_radius : int, default=5*window_size
         The radius (in multiples of the window size) around each point in the time series to exclude
@@ -79,7 +79,7 @@ class BinaryClaSPSegmentation:
 
     def __init__(self, n_segments="learn", n_estimators=10, window_size="suss", k_neighbours=3,
                  distance="znormed_euclidean_distance", score="roc_auc",
-                 early_stopping=True, validation="significance_test", threshold=1e-15, excl_radius=5,
+                 early_stopping=True, validation="significance_test", threshold="default", excl_radius=5,
                  n_jobs=-1, random_state=2357):
         self.n_segments = n_segments
         self.n_estimators = n_estimators
@@ -183,7 +183,7 @@ class BinaryClaSPSegmentation:
 
         Parameters
         ----------
-        time_series : array-like of shape (n_samples,)
+        time_series : array-like of shape (n_samples,) or (n_samples, d_dimensions)
             The input time series.
 
         Returns
@@ -196,10 +196,15 @@ class BinaryClaSPSegmentation:
         ValueError
             If the input time series has less than 2 times the minimum segment size.
         """
-        check_input_time_series(time_series)
+        time_series = check_input_time_series(time_series)
 
         if isinstance(self.window_size, str):
-            self.window_size = max(1, map_window_size_methods(self.window_size)(time_series) // 2)
+            window_sizes = []
+
+            for dim in range(time_series.shape[1]):
+                window_sizes.append(max(3, map_window_size_methods(self.window_size)(time_series[:, dim]) // 2))
+
+            self.window_size = int(np.min(window_sizes)) if len(window_sizes) > 0 else 10
 
         self.min_seg_size = self.window_size * self.excl_radius
 
@@ -211,6 +216,15 @@ class BinaryClaSPSegmentation:
 
         self.time_series = time_series
         self.n_timepoints = time_series.shape[0]
+
+        if self.threshold == "default":
+            if self.validation == "score_threshold":
+                self.threshold = 0.75
+            elif self.validation == "significance_test":
+                if self.time_series.shape[1] == 1:
+                    self.threshold = 1e-15
+                else:
+                    self.threshold = 1e-30
 
         self.queue = PriorityQueue()
         self.clasp_tree = []
@@ -234,7 +248,7 @@ class BinaryClaSPSegmentation:
 
             cp = clasp.split(validation=self.validation, threshold=self.threshold)
 
-            if cp is not None:
+            if cp is not None and self._cp_is_valid(cp, []):
                 self.clasp_tree.append((prange, clasp))
                 self.queue.put((-clasp.profile[cp], len(self.clasp_tree) - 1))
 
@@ -304,7 +318,7 @@ class BinaryClaSPSegmentation:
         Parameters:
         -----------
         time_series : numpy.ndarray
-            A one-dimensional numpy array containing the time series.
+            A one or two-dimensional numpy array containing the time series.
         sparse : bool, optional (default=True)
             Whether to return the change point indices only, or to return the segmented time series.
 
@@ -337,32 +351,39 @@ class BinaryClaSPSegmentation:
 
         Returns
         -------
-        ax1, ax2 : matplotlib.Axes
-            The two subplots of the resulting figure (the time series and the ClaSP plot).
+        axes : matplotlib.Axes
+            The subplots of the resulting figure (the time series and the ClaSP plot).
         """
         self._check_is_fitted()
-        fig, (ax1, ax2) = plt.subplots(2, sharex=True, gridspec_kw={"hspace": .05}, figsize=fig_size)
+        fig, axes = plt.subplots(self.time_series.shape[1] + 1, sharex=True, gridspec_kw={"hspace": .05},
+                                 figsize=fig_size)
+
+        ts_axes, profile_ax = axes[:-1], axes[-1]
 
         if gt_cps is not None:
             segments = [0] + gt_cps.tolist() + [self.time_series.shape[0]]
-            for idx in np.arange(0, len(segments) - 1):
-                ax1.plot(np.arange(segments[idx], segments[idx + 1]), self.time_series[segments[idx]:segments[idx + 1]])
+            for dim, ax in enumerate(ts_axes):
+                for idx in np.arange(0, len(segments) - 1):
+                    ax.plot(np.arange(segments[idx], segments[idx + 1]),
+                            self.time_series[segments[idx]:segments[idx + 1], dim])
 
-            ax2.plot(np.arange(self.profile.shape[0]), self.profile, color="black")
+            profile_ax.plot(np.arange(self.profile.shape[0]), self.profile, color="black")
         else:
-            ax1.plot(np.arange(self.time_series.shape[0]), self.time_series)
-            ax2.plot(np.arange(self.profile.shape[0]), self.profile, color="black")
+            for dim, ax in enumerate(ts_axes):
+                ax.plot(np.arange(self.time_series.shape[0]), self.time_series[:, dim])
+
+            profile_ax.plot(np.arange(self.profile.shape[0]), self.profile, color="black")
 
         if heading is not None:
-            ax1.set_title(heading, fontsize=font_size)
+            axes[0].set_title(heading, fontsize=font_size)
 
         if ts_name is not None:
-            ax1.set_ylabel(ts_name, fontsize=font_size)
+            axes[0].set_ylabel(ts_name, fontsize=font_size)
 
-        ax2.set_xlabel("split point", fontsize=font_size)
-        ax2.set_ylabel("ClaSP Score", fontsize=font_size)
+        profile_ax.set_xlabel("split point", fontsize=font_size)
+        profile_ax.set_ylabel("ClaSP Score", fontsize=font_size)
 
-        for ax in (ax1, ax2):
+        for ax in axes:
             for tick in ax.xaxis.get_major_ticks():
                 tick.label1.set_fontsize(font_size)
 
@@ -370,17 +391,17 @@ class BinaryClaSPSegmentation:
                 tick.label1.set_fontsize(font_size)
 
         if gt_cps is not None:
-            for idx, true_cp in enumerate(gt_cps):
-                ax1.axvline(x=true_cp, linewidth=2, color="r", label=f"True Change Point" if idx == 0 else None)
-                ax2.axvline(x=true_cp, linewidth=2, color="r", label="True Change Point" if idx == 0 else None)
+            for ax in axes:
+                for idx, true_cp in enumerate(gt_cps):
+                    ax.axvline(x=true_cp, linewidth=2, color="r", label=f"True Change Point" if idx == 0 else None)
 
         for idx, found_cp in enumerate(self.change_points):
-            ax1.axvline(x=found_cp, linewidth=2, color="g", label="Predicted Change Point" if idx == 0 else None)
-            ax2.axvline(x=found_cp, linewidth=2, color="g", label="Predicted Change Point" if idx == 0 else None)
+            for ax in axes:
+                ax.axvline(x=found_cp, linewidth=2, color="g", label="Predicted Change Point" if idx == 0 else None)
 
-        ax1.legend(prop={"size": font_size})
+        axes[0].legend(prop={"size": font_size})
 
         if file_path is not None:
             plt.savefig(file_path, bbox_inches="tight")
 
-        return ax1, ax2
+        return axes

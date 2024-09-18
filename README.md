@@ -7,9 +7,9 @@ Time series segmentation (TSS) tries to partition a time series (TS) into semant
 You can install ClaSPy with PyPi: 
 `python -m pip install claspy` 
 
-## Usage
+## Usage: univariate time series
 
-Let's first import the ClaSP algorithm and TS data from the <a href="https://github.com/ermshaua/time-series-segmentation-benchmark" target="_blank">"Time Series Segmentation Benchmark"</a> (TSSB) to demonstrate its utility.
+Let's first import the ClaSP algorithm and univariate TS data from the <a href="https://github.com/ermshaua/time-series-segmentation-benchmark" target="_blank">"Time Series Segmentation Benchmark"</a> (TSSB) to demonstrate its utility.
 
 ```python3
 >>> from claspy.segmentation import BinaryClaSPSegmentation
@@ -34,6 +34,32 @@ clasp.plot(gt_cps=true_cps, heading="Segmentation of different umpire cricket si
 <img src="https://raw.githubusercontent.com/ermshaua/claspy/main/segmentation_example.png" />
 
 ClaSP accurately detects the number and location of changes in the motion sequence (compare green vs red lines) that infer its segmentation (the different-coloured subsequences). It is carefully designed to do this fully autonomously. However, if you have domain-specific knowledge, you can utilize it to guide and improve the segmentation. See its <a href="https://github.com/ermshaua/claspy/blob/main/claspy/segmentation.py">parameters</a> for more information.
+
+## Usage: multivariate time series
+
+Now, let's import multivariate TS data from the <a href="https://github.com/patrickzib/human_activity_segmentation_challenge" target="_blank">"Human Activity Segmentation Challenge"</a> to show how ClaSP handles it.
+
+```python3
+>>> from claspy.data_loader import load_has_dataset
+```
+In this example, we use a motion routine from a student getting on, riding, and getting of a train. The multivariate TS consists of acceleration and magnetometer readings from a smartphone. We pass the time series as a 2-dimensional numpy array to ClaSP.
+
+```python3
+>>> dataset, window_size, true_cps, labels, time_series = load_has_dataset().iloc[107, :]
+>>> clasp = BinaryClaSPSegmentation()
+>>> clasp.fit_predict(time_series)
+[ 781 8212 9287 14468]
+```
+
+We visualize the segmentation and compare it to the ground truth annotation.
+
+```python3
+clasp.plot(gt_cps=true_cps, heading=f"Segmentation of activity routine: {', '.join(labels)}", ts_name="ACC", font_size=18, file_path="multivariate_segmentation_example.png")
+```
+
+<img src="https://raw.githubusercontent.com/ermshaua/claspy/main/multivariate_segmentation_example.png" />
+
+Also in the multivariate case, ClaSP correctly determines the number und location of activities in the routine. It is built to extract information from all TS channels to guide the segmentation. To ensure high performance, only provide necessary TS dimensions to ClaSP.
 
 ## Examples
 

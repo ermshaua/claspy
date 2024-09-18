@@ -179,9 +179,9 @@ def load_has_dataset(extract_path=None):
                     row["x-mag"].reshape(-1, 1),
                     row["y-mag"].reshape(-1, 1),
                     row["z-mag"].reshape(-1, 1),
-                    row["lat"].reshape(-1, 1),
-                    row["lon"].reshape(-1, 1),
-                    row["speed"].reshape(-1, 1),
+                    # row["lat"].reshape(-1, 1),
+                    # row["lon"].reshape(-1, 1),
+                    # row["speed"].reshape(-1, 1),
                 )
             )
 
