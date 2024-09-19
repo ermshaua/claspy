@@ -213,6 +213,7 @@ class BinaryClaSPSegmentation:
                 "Time series must at least have 2*min_seg_size data points for segmentation. Try setting "
                 "a smaller window size.")
             self.n_segments = 1
+            self.window_size = min(self.window_size, time_series.shape[0] // 2)
 
         self.time_series = time_series
         self.n_timepoints = time_series.shape[0]

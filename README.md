@@ -66,6 +66,7 @@ Also in the multivariate case, ClaSP correctly determines the number und locatio
 Checkout the following Jupyter notebooks that show applications of the ClaSPy package:
 
 - <a href="https://github.com/ermshaua/claspy/blob/main/claspy/notebooks/tssb_evaluation.ipynb">ClaSP evaluation on the "Time Series Segmentation Benchmark" (TSSB)</a>
+- <a href="https://github.com/ermshaua/claspy/blob/main/claspy/notebooks/has_evaluation.ipynb">ClaSP results for the "Human Activity Segmentation Challenge"</a>
 - <a href="https://github.com/ermshaua/claspy/blob/main/claspy/notebooks/clasp_configuration.ipynb">Hyper-parameter Tuning and Configuration of ClaSP</a>
 - <a href="https://github.com/ermshaua/claspy/blob/main/claspy/notebooks/window_size_selection.ipynb">Window Size Selection for Unsupervised Time Series Analytics</a>
 
