@@ -2,7 +2,6 @@ import os
 
 import numpy as np
 from numba import njit, prange, get_num_threads, set_num_threads
-from numba.typed.typedlist import List
 from sklearn.exceptions import NotFittedError
 
 from claspy.nearest_neighbour import KSubsequenceNeighbours
@@ -186,7 +185,7 @@ class ClaSP:
         else:
             self.knn = knn
 
-        pranges = List()
+        pranges = []
         n_jobs = self.n_jobs
 
         while self.knn.offsets.shape[0] // n_jobs < self.min_seg_size and n_jobs != 1:
@@ -202,7 +201,7 @@ class ClaSP:
         n_threads = get_num_threads()
         set_num_threads(n_jobs)
 
-        self.profile = numba_cache_safe(_parallel_profile, self.knn.offsets, pranges, self.window_size, self.score)
+        self.profile = numba_cache_safe(_parallel_profile, self.knn.offsets, np.array(pranges), self.window_size, self.score)
 
         set_num_threads(n_threads)
         self.is_fitted = True

@@ -381,7 +381,7 @@ class KSubsequenceNeighbours:
         else:
             self.temporal_constraints = temporal_constraints
 
-        pranges = List()
+        pranges = []
         n_jobs = self.n_jobs
 
         while time_series.shape[0] // n_jobs < self.window_size * self.k_neighbours and n_jobs != 1:
@@ -398,7 +398,7 @@ class KSubsequenceNeighbours:
         set_num_threads(n_jobs)
 
         self.distances, self.offsets = numba_cache_safe(_parallel_knn, time_series, self.window_size, self.k_neighbours,
-                                                     pranges, List(self.temporal_constraints),
+                                                     np.array(pranges), List(self.temporal_constraints),
                                                      self.distance, self.distance_preprocessing)
 
         set_num_threads(n_threads)
