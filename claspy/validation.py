@@ -1,6 +1,80 @@
-from scipy.stats import ranksums
+import numpy as np
+from scipy.stats import distributions
 
 from claspy.nearest_neighbour import cross_val_labels
+
+
+def _rank_binary_data(data):
+    """
+    Assigns rank-based scores to binary data for statistical evaluation.
+
+    This function assigns ranks to binary values in an array, distinguishing between `0`s and `1`s.
+    The ranks are computed such that all `0` values receive the average rank of their group,
+    and all `1` values receive the average rank of theirs.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        A 1D array of shape (n_timepoints,) containing binary values (0 or 1) representing
+        class labels or outcomes.
+
+    Returns
+    -------
+    ranks : np.ndarray
+        A 1D array of shape (n_timepoints,) where each entry is the average rank assigned to
+        the corresponding class (0 or 1). The ranks start from 1, following the convention of
+        statistical ranking.
+    """
+    zeros = data == 0
+    ones = data == 1
+
+    zero_ranks = np.arange(np.sum(zeros))
+    one_ranks = np.arange(zero_ranks.shape[0], data.shape[0])
+
+    zero_mean = np.mean(zero_ranks) + 1 if zero_ranks.shape[0] > 0 else 0
+    one_mean = np.mean(one_ranks) + 1 if one_ranks.shape[0] > 0 else 0
+
+    ranks = np.full(data.shape[0], fill_value=zero_mean, dtype=np.float64)
+    ranks[ones] = one_mean
+
+    return ranks
+
+
+def _rank_sums_test(x, y):
+    """
+    Performs a two-sided Wilcoxon rank-sum test (Mann–Whitney U test) on two samples.
+
+    This function tests the null hypothesis that two independent samples `x` and `y` come
+    from the same distribution. It computes the test statistic based on the sum of ranks
+    and returns the z-score and corresponding two-tailed p-value under the normal approximation.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        A 1D array representing the first sample of observations.
+    y : np.ndarray
+        A 1D array representing the second sample of observations.
+
+    Returns
+    -------
+    z : float
+        The standardized test statistic (z-score) computed from the rank sums.
+    p : float
+        The two-sided p-value indicating the significance of the difference between the samples.
+    """
+    n1, n2 = len(x), len(y)
+
+    alldata = np.concatenate((x, y))
+    ranked = _rank_binary_data(alldata)
+
+    x = ranked[:n1]
+    s = np.sum(x, axis=0)
+
+    expected = n1 * (n1 + n2 + 1) / 2.0
+    z = (s - expected) / np.sqrt(n1 * n2 * (n1 + n2 + 1) / 12.0)
+    p = 2 * distributions.norm.sf(np.abs(z))
+
+    return z, p
 
 
 def significance_test(clasp, change_point, threshold=1e-15):
@@ -29,8 +103,8 @@ def significance_test(clasp, change_point, threshold=1e-15):
     and the method returns True. Otherwise, the change point is considered not significant and the method returns False.
 
     """
-    _, y_pred = cross_val_labels(clasp.knn.offsets, change_point-clasp.lbound, clasp.window_size)
-    _, p = ranksums(y_pred[:change_point], y_pred[change_point:])
+    _, y_pred = cross_val_labels(clasp.knn.offsets, change_point - clasp.lbound, clasp.window_size)
+    _, p = _rank_sums_test(y_pred[:change_point], y_pred[change_point:])
     return p <= threshold
 
 

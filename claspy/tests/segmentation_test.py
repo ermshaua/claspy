@@ -72,7 +72,8 @@ class SegmentationTest(unittest.TestCase):
         n_jobs = (1, -1)
 
         for idx, (dataset, window_size, cps, time_series) in list(tssb.iterrows()):
-            for n_seg, window_size, distance, val, n_job in product(n_segments, window_sizes, distances, validations, n_jobs):
+            for n_seg, window_size, distance, val, n_job in product(n_segments, window_sizes, distances, validations,
+                                                                    n_jobs):
                 BinaryClaSPSegmentation(
                     n_segments=n_seg,
                     window_size=window_size,

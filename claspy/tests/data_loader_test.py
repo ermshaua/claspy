@@ -18,8 +18,8 @@ class DataLoaderTest(unittest.TestCase):
         assert all(isinstance(ts, np.ndarray) for ts in tssb.time_series)
         assert all(ts.ndim == 1 for ts in tssb.time_series)
 
-        cps, ts = tssb.iloc[0,2:]
-        clasp = BinaryClaSPSegmentation(n_segments=cps.shape[0]+1, validation=None)
+        cps, ts = tssb.iloc[0, 2:]
+        clasp = BinaryClaSPSegmentation(n_segments=cps.shape[0] + 1, validation=None)
         assert cps.shape[0] == clasp.fit_predict(ts).shape[0]
 
     def test_load_has_dataset(self):
@@ -32,6 +32,6 @@ class DataLoaderTest(unittest.TestCase):
         assert all(isinstance(ts, np.ndarray) for ts in tssb.time_series)
         assert all(ts.ndim > 1 for ts in tssb.time_series)
 
-        cps, _, ts = tssb.iloc[0,2:]
-        clasp = BinaryClaSPSegmentation(n_segments=cps.shape[0]+1, validation=None)
-        assert cps.shape[0] == clasp.fit_predict(ts[:,0]).shape[0]
+        cps, _, ts = tssb.iloc[0, 2:]
+        clasp = BinaryClaSPSegmentation(n_segments=cps.shape[0] + 1, validation=None)
+        assert cps.shape[0] == clasp.fit_predict(ts[:, 0]).shape[0]

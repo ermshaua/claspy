@@ -2,6 +2,7 @@ import os
 import shutil
 
 import numpy as np
+from numba import njit
 
 
 def check_input_time_series(time_series):
@@ -28,7 +29,7 @@ def check_input_time_series(time_series):
     if not isinstance(time_series, np.ndarray):
         raise TypeError("Input time series must be a numpy array.")
 
-    if len(time_series.shape) not in (1,2):
+    if len(time_series.shape) not in (1, 2):
         raise ValueError("Input time series must be one or two-dimensional.")
 
     if not np.issubdtype(time_series.dtype, np.number):
@@ -102,3 +103,32 @@ def numba_cache_safe(func, *args, **kwargs):
         # other issue
         raise e
 
+
+@njit(fastmath=True, cache=True)
+def roll_array(arr, num, fill_value=0):
+    """
+    Rolls the elements of a 1D array to the right by a specified number of positions.
+
+    This function performs a right circular shift of the input array by `num` positions. The shifted-in
+    position is filled with a specified value instead of wrapping around.
+
+    Parameters
+    ----------
+    arr : np.ndarray
+        The 1D input array to be rolled.
+    num : int
+        Number of positions to roll the array to the right.
+    fill_value : scalar, optional
+        The value to insert at the beginning of the array after the shift. Default is 0.
+
+    Returns
+    -------
+    result : np.ndarray
+        The rolled array with the first `num` elements filled by `fill_value` and the rest shifted accordingly.
+    """
+    result = np.empty_like(arr)
+
+    result[num] = fill_value
+    result[:num] = arr[-num:]
+
+    return result

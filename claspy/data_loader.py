@@ -28,8 +28,20 @@ HAS_DIRNAME = "data/has"
 
 MODULE = os.path.dirname(__file__)
 
-
-tssb_dataset_names = ['Adiac', 'ArrowHead', 'Beef', 'BeetleFly', 'BirdChicken', 'Car', 'CBF', 'Chinatown', 'ChlorineConcentration', 'CinCECGTorso', 'Coffee', 'Computers', 'CricketX', 'CricketY', 'CricketZ', 'Crop', 'DiatomSizeReduction', 'DistalPhalanxOutlineAgeGroup', 'DistalPhalanxTW', 'DodgerLoopDay', 'ECG200', 'ECGFiveDays', 'EOGHorizontalSignal', 'EOGVerticalSignal', 'FaceAll', 'FaceFour', 'FacesUCR', 'FiftyWords', 'Fish', 'FreezerRegularTrain', 'Ham', 'Herring', 'GunPoint', 'Haptics', 'InlineSkate', 'InsectWingbeatSound', 'ItalyPowerDemand', 'LargeKitchenAppliances', 'Lightning2', 'Lightning7', 'Mallat', 'Meat', 'MedicalImages', 'MelbournePedestrian', 'MiddlePhalanxOutlineAgeGroup', 'MiddlePhalanxOutlineCorrect', 'MiddlePhalanxTW', 'MoteStrain', 'NonInvasiveFetalECGThorax1', 'NonInvasiveFetalECGThorax2', 'OliveOil', 'OSULeaf', 'Plane', 'ProximalPhalanxOutlineAgeGroup', 'ProximalPhalanxOutlineCorrect', 'ProximalPhalanxTW', 'ShapesAll', 'ShapeletSim', 'SonyAIBORobotSurface1', 'SonyAIBORobotSurface2', 'Strawberry', 'SwedishLeaf', 'Symbols', 'SyntheticControl', 'ToeSegmentation1', 'ToeSegmentation2', 'Trace', 'TwoLeadECG', 'UMD', 'UWaveGestureLibraryAll', 'UWaveGestureLibraryX', 'UWaveGestureLibraryY', 'UWaveGestureLibraryZ', 'WordSynonyms', 'Yoga']
+tssb_dataset_names = ['Adiac', 'ArrowHead', 'Beef', 'BeetleFly', 'BirdChicken', 'Car', 'CBF', 'Chinatown',
+                      'ChlorineConcentration', 'CinCECGTorso', 'Coffee', 'Computers', 'CricketX', 'CricketY',
+                      'CricketZ', 'Crop', 'DiatomSizeReduction', 'DistalPhalanxOutlineAgeGroup', 'DistalPhalanxTW',
+                      'DodgerLoopDay', 'ECG200', 'ECGFiveDays', 'EOGHorizontalSignal', 'EOGVerticalSignal', 'FaceAll',
+                      'FaceFour', 'FacesUCR', 'FiftyWords', 'Fish', 'FreezerRegularTrain', 'Ham', 'Herring', 'GunPoint',
+                      'Haptics', 'InlineSkate', 'InsectWingbeatSound', 'ItalyPowerDemand', 'LargeKitchenAppliances',
+                      'Lightning2', 'Lightning7', 'Mallat', 'Meat', 'MedicalImages', 'MelbournePedestrian',
+                      'MiddlePhalanxOutlineAgeGroup', 'MiddlePhalanxOutlineCorrect', 'MiddlePhalanxTW', 'MoteStrain',
+                      'NonInvasiveFetalECGThorax1', 'NonInvasiveFetalECGThorax2', 'OliveOil', 'OSULeaf', 'Plane',
+                      'ProximalPhalanxOutlineAgeGroup', 'ProximalPhalanxOutlineCorrect', 'ProximalPhalanxTW',
+                      'ShapesAll', 'ShapeletSim', 'SonyAIBORobotSurface1', 'SonyAIBORobotSurface2', 'Strawberry',
+                      'SwedishLeaf', 'Symbols', 'SyntheticControl', 'ToeSegmentation1', 'ToeSegmentation2', 'Trace',
+                      'TwoLeadECG', 'UMD', 'UWaveGestureLibraryAll', 'UWaveGestureLibraryX', 'UWaveGestureLibraryY',
+                      'UWaveGestureLibraryZ', 'WordSynonyms', 'Yoga']
 
 
 def load_tssb_dataset(names=None, extract_path=None):
@@ -71,9 +83,9 @@ def load_tssb_dataset(names=None, extract_path=None):
     desc_file_path = os.path.join(local_module, local_dirname, desc_file_name)
 
     if (
-        not os.path.exists(desc_file_path)
-        or names is not None
-        and any(name not in tssb_dataset_names for name in names)
+            not os.path.exists(desc_file_path)
+            or names is not None
+            and any(name not in tssb_dataset_names for name in names)
     ):
         url = os.path.join(TSSB_URL, "desc.txt")
         urlretrieve(url, desc_file_path)
@@ -190,5 +202,3 @@ def load_has_dataset(extract_path=None):
     return pd.DataFrame.from_records(
         has, columns=["dataset", "window_size", "cps", "labels", "time_series"]
     )
-
-

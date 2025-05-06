@@ -65,7 +65,7 @@ def _sliding_dot(query, time_series):
 
 
 @njit(fastmath=True, cache=True)
-def _argkmin(dist, k):
+def _argkmin(dist, k, lbound=0):
     """
     Compute the indices of the k smallest elements in a numpy array.
     This function computes the indices of the k smallest elements in a
@@ -77,6 +77,8 @@ def _argkmin(dist, k):
         The input numpy array of distances.
     k : int
         The number of smallest elements to return.
+    lbound : int
+        The start offset to search from.
 
     Returns
     -------
@@ -109,7 +111,9 @@ def _argkmin(dist, k):
         min_arg = np.nan
         min_val = np.inf
 
-        for kdx, val in enumerate(dist):
+        for kdx in range(lbound, dist.shape[0]):
+            val = dist[kdx]
+
             if val < min_val:
                 min_val = val
                 min_arg = kdx
@@ -165,15 +169,15 @@ def _knn(time_series, start, end, window_size, k_neighbours, tcs, dot_first, dot
     l = len(time_series) - window_size + 1
     exclusion_radius = np.int64(window_size / 2)
 
-    knns = np.zeros(shape=(end-start, len(tcs) * k_neighbours), dtype=np.int64)
-    dists = np.zeros(shape=(end-start, len(tcs) * k_neighbours), dtype=np.float64)
+    knns = np.zeros(shape=(end - start, len(tcs) * k_neighbours), dtype=np.int64)
+    dists = np.zeros(shape=(end - start, len(tcs) * k_neighbours), dtype=np.float64)
 
     dot_prev = None
     dot_rolled = dot_first.copy()
     preprocessings = []
 
     for dim in range(time_series.shape[1]):
-        preprocessings.append(distance_preprocessing(time_series[:,dim], window_size))
+        preprocessings.append(distance_preprocessing(time_series[:, dim], window_size))
 
     for order in range(start, end):
         cdists = np.zeros(shape=(time_series.shape[1], l), dtype=np.float64)
@@ -206,8 +210,8 @@ def _knn(time_series, start, end, window_size, k_neighbours, tcs, dot_first, dot
             if order < lbound or order >= ubound: continue
             tc_nn = lbound + _argkmin(dist[lbound:ubound - window_size + 1], k_neighbours)
 
-            knns[order-start, kdx * k_neighbours:(kdx + 1) * k_neighbours] = tc_nn
-            dists[order-start, kdx * k_neighbours:(kdx + 1) * k_neighbours] = dist[tc_nn]
+            knns[order - start, kdx * k_neighbours:(kdx + 1) * k_neighbours] = tc_nn
+            dists[order - start, kdx * k_neighbours:(kdx + 1) * k_neighbours] = dist[tc_nn]
 
         dot_prev = dot_rolled
 
@@ -244,14 +248,15 @@ def _parallel_knn(time_series, window_size, k_neighbours, pranges, tcs, distance
     knns : ndarray of shape (l, m * k_neighbours)
         Array of indices of k nearest neighbors for each subsequence.
     """
-    dot_firsts = np.zeros(shape=(len(pranges), time_series.shape[1], time_series.shape[0] - window_size + 1), dtype=np.float64)
+    dot_firsts = np.zeros(shape=(len(pranges), time_series.shape[1], time_series.shape[0] - window_size + 1),
+                          dtype=np.float64)
     knns = np.zeros(shape=(time_series.shape[0] - window_size + 1, len(tcs) * k_neighbours), dtype=np.int64)
     dists = np.zeros(shape=(time_series.shape[0] - window_size + 1, len(tcs) * k_neighbours), dtype=np.float64)
 
     for idx in prange(len(pranges)):
         start, end = pranges[idx]
         for dim in range(time_series.shape[1]):
-            dot_firsts[idx,dim] = _sliding_dot(time_series[start:start + window_size, dim], time_series[:, dim])
+            dot_firsts[idx, dim] = _sliding_dot(time_series[start:start + window_size, dim], time_series[:, dim])
 
     for idx in prange(len(pranges)):
         start, end = pranges[idx]
@@ -338,7 +343,7 @@ class KSubsequenceNeighbours:
     -------
     fit(time_series)
         Fit the KSN model to the input time series data.
-    constrain(self, lbound, ubound)
+    constrain(lbound, ubound)
         Return a constrained KSN model for the given temporal constraint.
     """
 
@@ -391,15 +396,15 @@ class KSubsequenceNeighbours:
 
         for idx in range(n_jobs):
             start = idx * bin_size
-            end = min((idx + 1) * bin_size, len(time_series)-self.window_size+1)
+            end = min((idx + 1) * bin_size, len(time_series) - self.window_size + 1)
             if end > start: pranges.append((start, end))
 
         n_threads = get_num_threads()
         set_num_threads(n_jobs)
 
         self.distances, self.offsets = numba_cache_safe(_parallel_knn, time_series, self.window_size, self.k_neighbours,
-                                                     np.array(pranges), List(self.temporal_constraints),
-                                                     self.distance, self.distance_preprocessing)
+                                                        np.array(pranges), List(self.temporal_constraints),
+                                                        self.distance, self.distance_preprocessing)
 
         set_num_threads(n_threads)
         return self

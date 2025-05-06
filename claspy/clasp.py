@@ -105,9 +105,9 @@ class ClaSP:
     -------
     fit(time_series)
         Create a ClaSP for the input time series data.
-    predict()
+    transform()
         Return the ClaSP for the input time series data.
-    fit_predict(time_series)
+    fit_transform(time_series)
         Create and return a ClaSP for the input time series data.
     split()
         Split ClaSP into two segments.
@@ -201,7 +201,8 @@ class ClaSP:
         n_threads = get_num_threads()
         set_num_threads(n_jobs)
 
-        self.profile = numba_cache_safe(_parallel_profile, self.knn.offsets, np.array(pranges), self.window_size, self.score)
+        self.profile = numba_cache_safe(_parallel_profile, self.knn.offsets, np.array(pranges), self.window_size,
+                                        self.score)
 
         set_num_threads(n_threads)
         self.is_fitted = True
@@ -316,10 +317,12 @@ class ClaSPEnsemble(ClaSP):
     -------
     fit(time_series)
         Create a ClaSP ensemble for the input time series data.
-    predict()
+    transform()
         Return the ClaSP ensemble for the input time series data.
-    fit_predict(time_series)
+    fit_transform(time_series)
         Create and return a ClaSP ensemble for the input time series data.
+    split()
+        Split ClaSP ensemble into two segments.
     """
 
     def __init__(self, n_estimators=10, window_size=10, k_neighbours=3, distance="znormed_euclidean_distance",

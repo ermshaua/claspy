@@ -16,7 +16,6 @@ class WindowSizeTest(unittest.TestCase):
             for _, (dataset, window_size, cps, time_series) in tssb.iterrows():
                 assert lbound <= wss_algo(time_series, lbound=lbound)
 
-
     def test_edge_cases(self):
         lbound = 10
 
@@ -26,8 +25,3 @@ class WindowSizeTest(unittest.TestCase):
 
             time_series = np.zeros(1000, dtype=np.float64)
             assert wss_algo(time_series, lbound=lbound) == lbound
-
-
-
-
-

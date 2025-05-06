@@ -16,6 +16,10 @@ class BinaryClaSPSegmentation:
     """
     Segment time series data using the binary segmentation algorithm with ClaSP.
 
+    Reference:
+    Ermshaus, A., Schäfer, P., & Leser, U. (2023). ClaSP: Parameter-free time series segmentation.
+    Data Mining and Knowledge Discovery, 37, 1262–1300. https://doi.org/10.1007/s10618-023-00923-x
+
     Parameters
     ----------
     n_segments : str or int, default="learn"
@@ -302,7 +306,7 @@ class BinaryClaSPSegmentation:
         Returns
         -------
         If `sparse` is True, returns an array containing the indices of the change points.
-        Otherwise, returns a list of numpy arrays, where each array corresponds to a segment in the imput time series.
+        Otherwise, returns a list of numpy arrays, where each array corresponds to a segment in the input time series.
         """
         self._check_is_fitted()
 

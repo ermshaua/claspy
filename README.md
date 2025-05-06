@@ -61,6 +61,36 @@ clasp.plot(gt_cps=true_cps, heading=f"Segmentation of activity routine: {', '.jo
 
 Also in the multivariate case, ClaSP correctly determines the number und location of activities in the routine. It is built to extract information from all TS channels to guide the segmentation. To ensure high performance, only provide necessary TS dimensions to ClaSP.
 
+## Usage: streaming time series
+
+We also provide a streaming implementation of ClaSP that can segment ongoing time series streams or very large data archives in real-time (few thousand observations per second).
+
+```python3
+>>> from claspy.streaming import StreamingClaSPSegmentation
+```
+
+In our example, we simulate an ongoing ECG time series stream and use ClaSP to detect the transition between normal heartbeats and a myocardial infarction as soon as possible. We use a sliding window of 1k data points and update ClaSP with every data point. 
+
+```python3
+>>> dataset, window_size, true_cps, time_series = load_tssb_dataset(names=("ECG200",)).iloc[0, :]
+>>> clasp = StreamingClaSPSegmentation(n_timepoints=1000)
+
+>>> for idx, value in enumerate(time_series):
+>>>     clasp.update(value)
+>>>     if idx >= clasp.n_warmup and clasp.predict() != 0:
+>>>         break
+```
+
+For the first 1k data points, ClaSP "warms up", which means that it learns internal parameters from the data. Thereafter, we can query its predict method to find the last change point, e.g. to alert the user in real-time. In this example we wait for the first change point to occur and then inspect the sliding window.
+
+```python3
+clasp.plot(heading="Detection of myocardial infarction in ECG stream", stream_name="ECG", file_path=f"streaming_segmentation_example.png")
+```
+
+<img src="streaming_segmentation_example.png" />
+
+ClaSP needs circa 300 data points to accurately detect the change in heart beats. After the alert, it can be continued to be updated to detect more changes in the future. ClaSP is designed to automatically expel old data from its sliding window, efficiently use memory and run indefinitely. 
+
 ## Examples
 
 Checkout the following Jupyter notebooks that show applications of the ClaSPy package:

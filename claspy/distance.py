@@ -164,7 +164,8 @@ def sliding_csum_dcsum(time_series, window_size):
     means, stds = sliding_mean_std(time_series, window_size)
     csumsq = np.concatenate((np.zeros(1, dtype=np.float64), np.cumsum(time_series ** 2)))
     dcsumsq = np.concatenate((np.zeros(2, dtype=np.float64), np.cumsum((time_series[1:] - time_series[:-1]) ** 2)))
-    return [csumsq[window_size:] - csumsq[:-window_size], dcsumsq[window_size:] - dcsumsq[:-window_size] + 1e-5, means, stds]
+    return [csumsq[window_size:] - csumsq[:-window_size], dcsumsq[window_size:] - dcsumsq[:-window_size] + 1e-5, means,
+            stds]
 
 
 @njit(fastmath=True, cache=True)
@@ -207,7 +208,7 @@ def cinvariant_euclidean_distance(idx, dot, window_size, preprocessing, squared=
 _DISTANCE_MAPPING = {
     "znormed_euclidean_distance": (sliding_mean_std, znormed_euclidean_distance),
     "euclidean_distance": (sliding_csum, euclidean_distance),
-    "cinvariant_euclidean_distance" : (sliding_csum_dcsum, cinvariant_euclidean_distance)
+    "cinvariant_euclidean_distance": (sliding_csum_dcsum, cinvariant_euclidean_distance)
 }
 
 
