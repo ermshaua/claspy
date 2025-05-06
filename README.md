@@ -66,7 +66,7 @@ Also in the multivariate case, ClaSP correctly determines the number und locatio
 We also provide a streaming implementation of ClaSP that can segment ongoing time series streams or very large data archives in real-time (few thousand observations per second).
 
 ```python3
->>> from claspy.streaming import StreamingClaSPSegmentation
+>>> from claspy.streaming.segmentation import StreamingClaSPSegmentation
 ```
 
 In our example, we simulate an ongoing ECG time series stream and use ClaSP to detect the transition between normal heartbeats and a myocardial infarction as soon as possible. We use a sliding window of 1k data points and update ClaSP with every data point. 
