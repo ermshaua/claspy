@@ -87,7 +87,7 @@ For the first 1k data points, ClaSP "warms up", which means that it learns inter
 clasp.plot(heading="Detection of myocardial infarction in ECG stream", stream_name="ECG", file_path=f"streaming_segmentation_example.png")
 ```
 
-<img src="streaming_segmentation_example.png" />
+<img src="https://raw.githubusercontent.com/ermshaua/claspy/main/streaming_segmentation_example.png" />
 
 ClaSP needs circa 300 data points to accurately detect the change in heart beats. After the alert, it can be continued to be updated to detect more changes in the future. ClaSP is designed to automatically expel old data from its sliding window, efficiently use memory and run indefinitely. 
 
