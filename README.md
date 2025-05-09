@@ -89,7 +89,7 @@ clasp.plot(heading="Detection of myocardial infarction in ECG stream", stream_na
 
 <img src="https://raw.githubusercontent.com/ermshaua/claspy/main/streaming_segmentation_example.png" />
 
-ClaSP needs circa 300 data points to accurately detect the change in heart beats. After the alert, it can be continued to be updated to detect more changes in the future. ClaSP is designed to automatically expel old data from its sliding window, efficiently use memory and run indefinitely. 
+ClaSP needs circa 300 data points to accurately detect the change in heart beats. After the alert, it can be continued to be updated to detect more changes in the future. ClaSP is designed to automatically expel old data from its sliding window, efficiently use memory and run indefinitely. See this <a href="https://github.com/ermshaua/claspy/blob/main/claspy/notebooks/streaming_time_series.ipynb">tutorial</a> for more information. 
 
 ## Examples
 
@@ -99,6 +99,7 @@ Checkout the following Jupyter notebooks that show applications of the ClaSPy pa
 - <a href="https://github.com/ermshaua/claspy/blob/main/claspy/notebooks/has_evaluation.ipynb">ClaSP results for the "Human Activity Segmentation Challenge"</a>
 - <a href="https://github.com/ermshaua/claspy/blob/main/claspy/notebooks/clasp_configuration.ipynb">Hyper-parameter Tuning and Configuration of ClaSP</a>
 - <a href="https://github.com/ermshaua/claspy/blob/main/claspy/notebooks/window_size_selection.ipynb">Window Size Selection for Unsupervised Time Series Analytics</a>
+- <a href="https://github.com/ermshaua/claspy/blob/main/claspy/notebooks/streaming_time_series.ipynb">Segmentation of Streaming Time Series and Large Data Archives</a>
 
 ## Citation
 
