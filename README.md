@@ -131,7 +131,7 @@ Here, each state corresponds to a crop type, and transitions describe how the sy
 >>> clap.plot(heading="Process of captured crops", file_path=f"process_discovery_example.png", sparse=True)
 ```
 
-<img src="https://raw.githubusercontent.com/ermshaua/claspy/main/process_discovery_example.png" />
+<img src="https://raw.githubusercontent.com/ermshaua/claspy/main/process_discovery_example.png" width="50%" />
 
 This representation abstracts the TS into a compact process model, where nodes represent states and edges indicate observed transitions. It enables downstream analysis such as anomaly detection, or classification on state-labeled sequences.
 
