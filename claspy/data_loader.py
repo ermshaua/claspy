@@ -6,6 +6,8 @@ from urllib.request import urlretrieve
 import numpy as np
 import pandas as pd
 
+from claspy.utils import create_state_labels
+
 __all__ = []
 
 __author__ = [
@@ -50,6 +52,7 @@ def load_tssb_dataset(names=None, extract_path=None):
     in the standard .txt format: each row is a univariate time series,
     annotated with name, window size and ground truth change points.
     For examples see https://github.com/ermshaua/time-series-segmentation-benchmark.
+
     Parameters
     ----------
     names : List[str]
@@ -59,15 +62,21 @@ def load_tssb_dataset(names=None, extract_path=None):
         saving it to the extract_path.
     extract_path : str, optional (default=None)
         the path to look for the data. If no path is provided, the function
-        looks in `claspy/tests/data/tssb/`.
+        looks in `claspy/data/tssb/`.
+
     Returns
     -------
     tssb: pandas DataFrame
         The time series data for the problem with n_cases rows and either
-        4 columns. Columns 1 to 3 are the name, window size and ground truth
-        change points. Column 4 is the associated time series.
+        5 columns. Columns 1 to 4 are the name, window size, ground truth
+        change points and labels. Column 5 is the associated time series.
+
+    Raises
+    ------
+    IOError
+        If the dataset cannot be downloaded or accessed.
     """
-    # Allow user to have non standard extract path
+    # allow user to have non-standard extract path
     if extract_path is not None:
         local_module = os.path.dirname(extract_path)
         local_dirname = extract_path
@@ -87,7 +96,7 @@ def load_tssb_dataset(names=None, extract_path=None):
             or names is not None
             and any(name not in tssb_dataset_names for name in names)
     ):
-        url = os.path.join(TSSB_URL, "desc.txt")
+        url = os.path.join(TSSB_URL, desc_file_name)
         urlretrieve(url, desc_file_path)
 
     with open(desc_file_path, "r") as file:
@@ -97,10 +106,34 @@ def load_tssb_dataset(names=None, extract_path=None):
             if names is None or line[0] in names:
                 desc.append(line)
 
+    prop = []
+    prop_file_name = "properties.txt"
+    prop_file_path = os.path.join(local_module, local_dirname, prop_file_name)
+
+    if (
+            not os.path.exists(prop_file_path)
+            or names is not None
+            and any(name not in tssb_dataset_names for name in names)
+    ):
+        url = os.path.join(TSSB_URL, prop_file_name)
+        urlretrieve(url, prop_file_path)
+
+    with open(prop_file_path, 'r') as file:
+        for line in file.readlines():
+            line = line.split(",")
+
+            ds_name, interpretable, label_cut, resample_rate, labels = line[0], bool(line[1]), int(line[2]), int(
+                line[3]), line[4:]
+            labels = np.array([int(l.replace("\n", "")) // (label_cut + 1) for l in labels])
+
+            if names is None or ds_name in names:
+                prop.append((ds_name, label_cut, resample_rate, labels))
+
     tssb = []
 
-    for row in desc:
-        (ts_name, window_size), change_points = row[:2], row[2:]
+    for desc_row, prop_row in zip(desc, prop):
+        (ts_name, window_size), change_points = desc_row[:2], desc_row[2:]
+        labels = prop_row[3]
 
         ts_file_path = os.path.join(local_module, local_dirname, ts_name + ".txt")
 
@@ -111,16 +144,39 @@ def load_tssb_dataset(names=None, extract_path=None):
         ts = np.loadtxt(fname=ts_file_path, dtype=np.float64)
         window_size = np.int64(window_size)
         change_points = np.asarray(change_points, dtype=np.int64)
+        labels = create_state_labels(change_points, labels, ts.shape[0]) + 1
 
-        tssb.append((ts_name, window_size, change_points, ts))
+        tssb.append((ts_name, window_size, change_points, labels, ts))
 
-    return pd.DataFrame.from_records(
-        tssb, columns=["dataset", "window_size", "cps", "time_series"]
-    )
+    return pd.DataFrame.from_records(tssb, columns=["dataset", "window_size", "cps", "labels", "time_series"])
 
 
 def load_has_dataset(extract_path=None):
-    # Allow user to have non standard extract path
+    """
+    Load the Human Activity Segmentation (HAS) dataset.
+
+    Downloads the dataset if not already available locally and constructs
+    multivariate time series along with corresponding change points and labels.
+
+    Parameters
+    ----------
+    extract_path : str, optional (default=None)
+        Path to store or load the dataset. If not provided, defaults to
+        `claspy/data/has/`.
+
+    Returns
+    -------
+    has : pandas.DataFrame
+        A DataFrame where each row corresponds to a time series instance.
+        Columns include dataset name, window size, change points, labels,
+        and the multivariate time series data.
+
+    Raises
+    ------
+    IOError
+        If the dataset cannot be downloaded or accessed.
+    """
+    # allow user to have non-standard extract path
     if extract_path is not None:
         local_module = os.path.dirname(extract_path)
         local_dirname = extract_path

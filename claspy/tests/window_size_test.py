@@ -13,7 +13,7 @@ class WindowSizeTest(unittest.TestCase):
         lbound = 10
 
         for wss_algo in (suss, dominant_fourier_frequency, highest_autocorrelation):
-            for _, (dataset, window_size, cps, time_series) in tssb.iterrows():
+            for _, (dataset, window_size, cps, _, time_series) in tssb.iterrows():
                 assert lbound <= wss_algo(time_series, lbound=lbound)
 
     def test_edge_cases(self):

@@ -42,6 +42,72 @@ def check_input_time_series(time_series):
     return time_series
 
 
+def check_input_change_points(change_points):
+    """
+    Check that the input change points are a 1-dimensional numpy array of integers.
+
+    Parameters
+    ----------
+    change_points : array-like
+        The input change points.
+
+    Returns
+    -------
+    change_points : ndarray
+        The input change points as a 1-dimensional numpy array of integers.
+
+    Raises
+    ------
+    TypeError
+        If the input change points are not an array-like object or not a 1-dimensional array.
+    ValueError
+        If the input change points are not composed of integers.
+    """
+    if not isinstance(change_points, np.ndarray):
+        raise TypeError("Input change points must be a numpy array.")
+
+    if len(change_points.shape) != 1:
+        raise ValueError("Input change points must be one-dimensional.")
+
+    if not np.issubdtype(change_points.dtype, np.integer):
+        raise TypeError("Input change points must contain integer values.")
+
+    return change_points
+
+
+def check_input_labels(labels):
+    """
+    Check that the input labels are a 1-dimensional numpy array of integers.
+
+    Parameters
+    ----------
+    labels : array-like
+        The input labels.
+
+    Returns
+    -------
+    labels : ndarray
+        The input labels as a 1-dimensional numpy array of integers.
+
+    Raises
+    ------
+    TypeError
+        If the input labels are not an array-like object or not a 1-dimensional array.
+    ValueError
+        If the input labels are not composed of integers.
+    """
+    if not isinstance(labels, np.ndarray):
+        raise TypeError("Input change points must be a numpy array.")
+
+    if len(labels.shape) != 1:
+        raise ValueError("Input change points must be one-dimensional.")
+
+    if not np.issubdtype(labels.dtype, np.integer):
+        raise TypeError("Input change points must contain integer values.")
+
+    return labels
+
+
 def check_excl_radius(k_neighbours, excl_radius):
     """
     Check if the exclusion radius is larger than the amount of neighbours used for ClaSP.
@@ -132,3 +198,43 @@ def roll_array(arr, num, fill_value=0):
     result[:num] = arr[-num:]
 
     return result
+
+
+@njit(fastmath=True, cache=True)
+def create_state_labels(cps, labels, ts_len):
+    """
+    Create a state label array from change points and segment labels.
+
+    Parameters
+    ----------
+    cps : np.ndarray
+        A 1-dimensional array of change point indices.
+    labels : np.ndarray
+        A 1-dimensional array of integer labels for each segment.
+    ts_len : int
+        The length of the time series.
+
+    Returns
+    -------
+    seg_labels : np.ndarray
+        A 1-dimensional array of length `ts_len`, where each position is assigned
+        the label of its corresponding segment.
+
+    Raises
+    ------
+    ValueError
+        If the number of labels does not match the number of segments defined by `cps`.
+    """
+    seg_labels = np.zeros(shape=ts_len, dtype=np.int64)
+
+    segments = np.concatenate((
+        np.array([0]),
+        cps,
+        np.array([ts_len])
+    ))
+
+    for idx in range(1, len(segments)):
+        seg_start, seg_end = segments[idx - 1], segments[idx]
+        seg_labels[seg_start:seg_end] = labels[idx - 1]
+
+    return seg_labels

@@ -14,7 +14,7 @@ class StreamingKSubsequenceNeighboursTest(unittest.TestCase):
         np.random.seed(2357)
         tssb = tssb.sample(10)
 
-        for _, (dataset, window_size, cps, time_series) in tssb.iterrows():
+        for _, (dataset, window_size, cps, _, time_series) in tssb.iterrows():
             knn_stream = StreamingKSubsequenceNeighbours(n_timepoints=1000, window_size=window_size)
 
             for timepoint in time_series:
@@ -35,7 +35,7 @@ class StreamingKSubsequenceNeighboursTest(unittest.TestCase):
         k_neighbours = (1, 3, 5)
         distances = ("znormed_euclidean_distance", "euclidean_distance", "cinvariant_euclidean_distance")
 
-        for _, (dataset, window_size, cps, time_series) in tssb.iterrows():
+        for _, (dataset, window_size, cps, _, time_series) in tssb.iterrows():
             for n, k, dist in product(n_timepoints, k_neighbours, distances):
                 knn_stream = StreamingKSubsequenceNeighbours(n_timepoints=n, window_size=window_size,
                                                              k_neighbours=k, distance=dist)

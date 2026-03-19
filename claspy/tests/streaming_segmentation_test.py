@@ -17,7 +17,7 @@ class StreamingSegmentationTest(unittest.TestCase):
         tssb = load_tssb_dataset()
         scores = []
 
-        for idx, (dataset, window_size, cps, time_series) in list(tssb.iterrows()):
+        for idx, (dataset, window_size, cps, _, time_series) in list(tssb.iterrows()):
             clasp = StreamingClaSPSegmentation(n_timepoints=min(10_000, time_series.shape[0]), log_cps=True)
 
             for value in time_series:
@@ -40,7 +40,7 @@ class StreamingSegmentationTest(unittest.TestCase):
         distances = ("znormed_euclidean_distance", "euclidean_distance", "cinvariant_euclidean_distance")
         validations = ("significance_test", "score_threshold")
 
-        for idx, (dataset, window_size, cps, time_series) in list(tssb.iterrows()):
+        for idx, (dataset, window_size, cps, _, time_series) in list(tssb.iterrows()):
             for n_tp, window_size, distance, val in product(n_timepoints, window_sizes, distances, validations):
                 clasp = StreamingClaSPSegmentation(
                     n_timepoints=min(n_tp, time_series.shape[0]),
@@ -54,7 +54,7 @@ class StreamingSegmentationTest(unittest.TestCase):
                     clasp.update(value)
 
     def test_readme(self):
-        dataset, window_size, true_cps, time_series = load_tssb_dataset(names=("ECG200",)).iloc[0, :]
+        dataset, window_size, true_cps, labels, time_series = load_tssb_dataset(names=("ECG200",)).iloc[0, :]
         clasp = StreamingClaSPSegmentation(n_timepoints=1000)
 
         for idx, value in enumerate(time_series):

@@ -19,7 +19,7 @@ Let's first import the ClaSP algorithm and univariate TS data from the <a href="
 As an example, we choose the <a href="http://timeseriesclassification.com/description.php?Dataset=Cricket" target="_blank">Cricket</a> data set that contains motions of different umpire signals captured as wrist acceleration. ClaSP should automatically detect semantic changes between signals and deduce their segmentation. It is parameter-free, so we just need to pass the time series as a numpy array.
 
 ```python3
->>> dataset, window_size, true_cps, time_series = load_tssb_dataset(names=("CricketX",)).iloc[0,:]
+>>> dataset, window_size, true_cps, labels, time_series = load_tssb_dataset(names=("CricketX",)).iloc[0,:]
 >>> clasp = BinaryClaSPSegmentation()
 >>> clasp.fit_predict(time_series)
 [ 712 1281 1933 2581]
@@ -28,7 +28,7 @@ As an example, we choose the <a href="http://timeseriesclassification.com/descri
 ClaSP is fully interpretable to human inspection. It creates a score profile (between 0 and 1) that estimates the probability of a "change point" in a TS, where one segment transitions into another. We visualize the segmentation and compare it to the pre-defined human annotation.
 
 ```python3
-clasp.plot(gt_cps=true_cps, heading="Segmentation of different umpire cricket signals", ts_name="ACC", file_path="segmentation_example.png")
+>>> clasp.plot(gt_cps=true_cps, heading="Segmentation of different umpire cricket signals", ts_name="ACC", file_path="segmentation_example.png")
 ```
 
 <img src="https://raw.githubusercontent.com/ermshaua/claspy/main/segmentation_example.png" />
@@ -54,7 +54,7 @@ In this example, we use a motion routine from a student getting on, riding, and 
 We visualize the segmentation and compare it to the ground truth annotation.
 
 ```python3
-clasp.plot(gt_cps=true_cps, heading=f"Segmentation of activity routine: {', '.join(labels)}", ts_name="ACC", font_size=18, file_path="multivariate_segmentation_example.png")
+>>> clasp.plot(gt_cps=true_cps, heading=f"Segmentation of activity routine: {', '.join(labels)}", ts_name="ACC", font_size=18, file_path="multivariate_segmentation_example.png")
 ```
 
 <img src="https://raw.githubusercontent.com/ermshaua/claspy/main/multivariate_segmentation_example.png" />
@@ -72,7 +72,7 @@ We also provide a streaming implementation of ClaSP that can segment ongoing tim
 In our example, we simulate an ongoing ECG time series stream and use ClaSP to detect the transition between normal heartbeats and a myocardial infarction as soon as possible. We use a sliding window of 1k data points and update ClaSP with every data point. 
 
 ```python3
->>> dataset, window_size, true_cps, time_series = load_tssb_dataset(names=("ECG200",)).iloc[0, :]
+>>> dataset, window_size, true_cps, labels, time_series = load_tssb_dataset(names=("ECG200",)).iloc[0, :]
 >>> clasp = StreamingClaSPSegmentation(n_timepoints=1000)
 
 >>> for idx, value in enumerate(time_series):
@@ -84,12 +84,58 @@ In our example, we simulate an ongoing ECG time series stream and use ClaSP to d
 For the first 1k data points, ClaSP "warms up", which means that it learns internal parameters from the data. Thereafter, we can query its predict method to find the last change point, e.g. to alert the user in real-time. In this example we wait for the first change point to occur and then inspect the sliding window.
 
 ```python3
-clasp.plot(heading="Detection of myocardial infarction in ECG stream", stream_name="ECG", file_path=f"streaming_segmentation_example.png")
+>>> clasp.plot(heading="Detection of myocardial infarction in ECG stream", stream_name="ECG", file_path=f"streaming_segmentation_example.png")
 ```
 
 <img src="https://raw.githubusercontent.com/ermshaua/claspy/main/streaming_segmentation_example.png" />
 
 ClaSP needs circa 300 data points to accurately detect the change in heart beats. After the alert, it can be continued to be updated to detect more changes in the future. ClaSP is designed to automatically expel old data from its sliding window, efficiently use memory and run indefinitely. See this <a href="https://github.com/ermshaua/claspy/blob/main/claspy/notebooks/streaming_time_series.ipynb">tutorial</a> for more information. 
+
+## Extension: state detection
+
+We extend TSS with state detection to infer latent system states from TS data and to recover their transition structure. This is particularly useful when segments correspond to recurring regimes (e.g., crop types in satellite image TS), where both the ordering and repetition of states matter.
+
+We demonstrate state detection with the CLaP algorithm on the Crop dataset from the TSSB, where a satellite image TS captures different crops (one per colour). The goal is to automatically identify the underlying states and their transitions.
+
+```python3
+>>> from claspy.state_detection import AgglomerativeCLaPDetection
+```
+
+Similar to ClaSP, CLaP is parameter-free and directly returns a state sequence, assigning a discrete state label to each time point. These states label segments in the TS (e.g., different crops).
+
+```python3
+>>> dataset, window_size, true_cps, labels, time_series = load_tssb_dataset(names=("Crop",)).iloc[0, :]
+>>> clap = AgglomerativeCLaPDetection()
+>>> state_seq = clap.fit_predict(time_series)
+```
+
+We can visualize the detected state sequence and compare it to the ground truth.
+
+```python3
+>>> clap.plot(gt_states=labels, heading="Detection of crops in satellite image time series", ts_name="Sensor", file_path=f"state_detection_example.png")
+```
+
+<img src="https://raw.githubusercontent.com/ermshaua/claspy/main/state_detection_example.png" />
+
+Beyond labeling, CLaP can recover the process structure underlying the TS by abstracting states and transitions:
+
+```python3
+>>> states, transitions = clap.predict(sparse=True)
+{1, 2, 3}
+{(1, 2), (2, 3), (3, 1)}
+```
+
+Here, each state corresponds to a crop type, and transitions describe how the system evolves over time. We can visualize this as a state transition graph:
+
+```python3
+>>> clap.plot(heading="Process of captured crops", file_path=f"process_discovery_example.png", sparse=True)
+```
+
+<img src="https://raw.githubusercontent.com/ermshaua/claspy/main/process_discovery_example.png" />
+
+This representation abstracts the TS into a compact process model, where nodes represent states and edges indicate observed transitions. It enables downstream analysis such as anomaly detection, or classification on state-labeled sequences.
+
+The state detection workflow complements segmentation by not only identifying boundaries but also assigning consistent semantic labels across recurring segments, allowing a higher-level understanding of temporal dynamics.
 
 ## Examples
 
@@ -103,14 +149,38 @@ Checkout the following Jupyter notebooks that show applications of the ClaSPy pa
 
 ## Citation
 
-The ClaSPy package is actively maintained, updated and intended for application. If you use ClaSP in your scientific publication, we would appreciate the following <a href="https://doi.org/10.1007/s10618-023-00923-x" target="_blank">citation</a>:
+The ClaSPy package is actively maintained, updated and intended for application. If you use ClaSP/ClaSS/CLaP in your scientific publication, we would appreciate the corresponding citation:
 
 ```
-@article{clasp2023,
+@article{Ermshaus2023ClaSP,
   title={ClaSP: parameter-free time series segmentation},
   author={Arik Ermshaus and Patrick Sch{\"a}fer and Ulf Leser},
   journal={Data Mining and Knowledge Discovery},
   year={2023},
+  volume={37},
+  pages={1262-1300},
+}
+
+@article{Ermshaus2024ClaSS,
+  title={Raising the ClaSS of Streaming Time Series Segmentation},
+  author={Arik Ermshaus and Patrick Sch{\"a}fer and Ulf Leser},
+  journal={Proceedings of the VLDB Endowment},
+  volume={17},
+  number={8},
+  pages={1953-1966},
+  year={2024},
+  publisher={VLDB Endowment}
+}
+
+@article{Ermshaus2025CLaP,
+  title={CLaP - State Detection from Time Series},
+  author={Arik Ermshaus and Patrick Sch{\"a}fer and Ulf Leser},
+  journal={Proceedings of the VLDB Endowment},
+  volume={19},
+  number={1},
+  pages={70-83},
+  year={2025},
+  publisher={VLDB Endowment}
 }
 ```
 

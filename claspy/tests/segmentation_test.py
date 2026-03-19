@@ -33,7 +33,7 @@ class SegmentationTest(unittest.TestCase):
         scores = []
         runtime = time.process_time()
 
-        for idx, (dataset, window_size, cps, time_series) in list(tssb.iterrows()):
+        for idx, (dataset, window_size, cps, _, time_series) in list(tssb.iterrows()):
             clasp = BinaryClaSPSegmentation()
             found_cps = clasp.fit_predict(time_series)
             score = np.round(covering({0: cps}, found_cps, time_series.shape[0]), 2)
@@ -71,7 +71,7 @@ class SegmentationTest(unittest.TestCase):
         validations = (None, "significance_test", "score_threshold")
         n_jobs = (1, -1)
 
-        for idx, (dataset, window_size, cps, time_series) in list(tssb.iterrows()):
+        for idx, (dataset, window_size, cps, _, time_series) in list(tssb.iterrows()):
             for n_seg, window_size, distance, val, n_job in product(n_segments, window_sizes, distances, validations,
                                                                     n_jobs):
                 BinaryClaSPSegmentation(
@@ -83,7 +83,7 @@ class SegmentationTest(unittest.TestCase):
                 ).fit(time_series)
 
     def test_readme(self):
-        dataset, window_size, true_cps, time_series = load_tssb_dataset(names=("CricketX",)).iloc[0, :]
+        dataset, window_size, true_cps, labels, time_series = load_tssb_dataset(names=("CricketX",)).iloc[0, :]
 
         clasp = BinaryClaSPSegmentation()
         change_points = clasp.fit_predict(time_series)

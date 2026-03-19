@@ -14,7 +14,7 @@ class KSubsequenceNeighboursTest(unittest.TestCase):
         np.random.seed(2357)
         tssb = tssb.sample(10)
 
-        for _, (dataset, window_size, cps, time_series) in tssb.iterrows():
+        for _, (dataset, window_size, cps, _, time_series) in tssb.iterrows():
             knn = KSubsequenceNeighbours(window_size=window_size)
             knn.fit(time_series)
 
@@ -32,7 +32,7 @@ class KSubsequenceNeighboursTest(unittest.TestCase):
         distances = ("euclidean_distance", "znormed_euclidean_distance", "cinvariant_euclidean_distance")
         n_jobs = (1, -1)
 
-        for _, (dataset, window_size, cps, time_series) in tssb.iterrows():
+        for _, (dataset, window_size, cps, _, time_series) in tssb.iterrows():
             for window_size, k, dist, n_job in product(window_sizes, k_neighbours, distances, n_jobs):
                 knn = KSubsequenceNeighbours(window_size=window_size, k_neighbours=k, distance=dist, n_jobs=n_job)
                 knn.fit(time_series)
@@ -46,7 +46,7 @@ class KSubsequenceNeighboursTest(unittest.TestCase):
         np.random.seed(2357)
         tssb = tssb.sample(10)
 
-        for _, (dataset, window_size, cps, time_series) in tssb.iterrows():
+        for _, (dataset, window_size, cps, _, time_series) in tssb.iterrows():
             tcs = np.arange(0, time_series.shape[0], int(time_series.shape[0] / 5))
             tcs = [(tcs[idx], tcs[idx + 1]) for idx in range(0, len(tcs) - 1)]
 
