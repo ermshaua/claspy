@@ -135,7 +135,10 @@ def roc_auc_score(y_score, y_true):
         else:
             return -np.inf
 
-    area = direction * np.trapz(tpr, fpr)
+    # Trapezoidal rule written out: np.trapz was removed in NumPy 2.4 and
+    # np.trapezoid only exists from NumPy 2.0, so neither works across the
+    # supported NumPy range inside numba.
+    area = direction * np.sum(dx * (tpr[1:] + tpr[:-1]) * 0.5)
     return area
 
 
